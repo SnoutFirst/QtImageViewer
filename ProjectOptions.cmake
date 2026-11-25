@@ -7,11 +7,7 @@ include(CheckCXXSourceCompiles)
 
 
 macro(QtImageViewer_supports_sanitizers)
-  # Emscripten doesn't support sanitizers
-  if(EMSCRIPTEN)
-    set(SUPPORTS_UBSAN OFF)
-    set(SUPPORTS_ASAN OFF)
-  elseif((CMAKE_CXX_COMPILER_ID MATCHES ".*Clang.*" OR CMAKE_CXX_COMPILER_ID MATCHES ".*GNU.*") AND NOT WIN32)
+  if((CMAKE_CXX_COMPILER_ID MATCHES ".*Clang.*" OR CMAKE_CXX_COMPILER_ID MATCHES ".*GNU.*") AND NOT WIN32)
 
     message(STATUS "Sanity checking UndefinedBehaviorSanitizer, it should be supported on this platform")
     set(TEST_PROGRAM "int main() { return 0; }")
@@ -178,16 +174,14 @@ macro(QtImageViewer_local_options)
   include(cmake/Linker.cmake)
   # Must configure each target with linker options, we're avoiding setting it globally for now
 
-  if(NOT EMSCRIPTEN)
-    include(cmake/Sanitizers.cmake)
-    QtImageViewer_enable_sanitizers(
-      QtImageViewer_options
-      ${QtImageViewer_ENABLE_SANITIZER_ADDRESS}
-      ${QtImageViewer_ENABLE_SANITIZER_LEAK}
-      ${QtImageViewer_ENABLE_SANITIZER_UNDEFINED}
-      ${QtImageViewer_ENABLE_SANITIZER_THREAD}
-      ${QtImageViewer_ENABLE_SANITIZER_MEMORY})
-  endif()
+  include(cmake/Sanitizers.cmake)
+  QtImageViewer_enable_sanitizers(
+    QtImageViewer_options
+    ${QtImageViewer_ENABLE_SANITIZER_ADDRESS}
+    ${QtImageViewer_ENABLE_SANITIZER_LEAK}
+    ${QtImageViewer_ENABLE_SANITIZER_UNDEFINED}
+    ${QtImageViewer_ENABLE_SANITIZER_THREAD}
+    ${QtImageViewer_ENABLE_SANITIZER_MEMORY})
 
   set_target_properties(QtImageViewer_options PROPERTIES UNITY_BUILD ${QtImageViewer_ENABLE_UNITY_BUILD})
 
