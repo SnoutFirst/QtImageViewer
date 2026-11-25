@@ -7,6 +7,7 @@
 
 int main(int argc, char *argv[])
 {
-  QCoreApplication application(argc, argv);
+  // qApp points at this object as a QCoreApplication *, so it cannot be const.
+  QCoreApplication application(argc, argv);// NOLINT(misc-const-correctness)
   return Catch::Session().run(argc, argv);
 }

@@ -33,10 +33,12 @@ bool wantsOnlyListing(int argc, char **argv)
 int main(int argc, char **argv)
 {
   if (wantsOnlyListing(argc, argv)) {
-    QCoreApplication application(argc, argv);
+    // qApp points at these objects as the non-const classes, so neither can be
+    // const even though every function called on them is static.
+    QCoreApplication application(argc, argv);// NOLINT(misc-const-correctness)
     return Catch::Session().run(argc, argv);
   }
 
-  QApplication application(argc, argv);
+  QApplication application(argc, argv);// NOLINT(misc-const-correctness)
   return Catch::Session().run(argc, argv);
 }

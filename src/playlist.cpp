@@ -106,7 +106,7 @@ void Playlist::startCycle(bool forwards, int boundary)
   }
 
   m_position = forwards ? 0 : count - 1;
-  if (m_position < 0) { m_position = 0; }
+  m_position = std::max(m_position, 0);
 }
 
 }// namespace imgview

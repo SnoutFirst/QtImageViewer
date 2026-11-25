@@ -48,11 +48,11 @@ private:
   static constexpr int kResizeBorderWidth = 8;
 
   //! The edges and corners within kResizeBorderWidth of \a position.
-  Qt::Edges edgesAt(const QPointF &position) const;
+  [[nodiscard]] Qt::Edges edgesAt(const QPointF &position) const;
   //! The cursor that says "this edge resizes", or none for the rest of the window.
   void showResizeCursor(Qt::Edges edges);
   //! The smallest size the window may be dragged down to.
-  QSize minimumWindowSize() const;
+  [[nodiscard]] QSize minimumWindowSize() const;
 
   void dragTo(const QPointF &globalPosition);
   void resizeTo(const QPointF &globalPosition);

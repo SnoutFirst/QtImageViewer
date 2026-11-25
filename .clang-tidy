@@ -1,34 +1,132 @@
 # yaml-language-server: $schema=https://json.schemastore.org/clang-tidy.json
 ---
-Checks: "*,
-        -abseil-*,
-        -altera-*,
-        -android-*,
-        -fuchsia-*,
-        -google-*,
-        -llvm*,
-        -modernize-use-trailing-return-type,
-        -zircon-*,
-        -readability-else-after-return,
-        -readability-static-accessed-through-instance,
-        -readability-avoid-const-params-in-decls,
-        -cppcoreguidelines-non-private-member-variables-in-classes,
-        -misc-non-private-member-variables-in-classes,
-        -misc-no-recursion,
-        -misc-use-anonymous-namespace,
-        -misc-use-internal-linkage
-"
-WarningsAsErrors: ''
-HeaderFilterRegex: ''
+# Coding guidelines for this project. CI runs clang-tidy as warnings-as-errors
+# (the "clang-tidy" job in .github/workflows/ci.yml), so a finding fails the
+# build; locally the same is available with
+#   cmake -S . -B build -DQtImageViewer_ENABLE_CLANG_TIDY=ON
+#
+# Every check a group brings along is on. The ones switched off again, and why
+# (the list below has to stay free of comments: clang-tidy reads it as one
+# comma-separated string, prose included):
+#
+#   -boost-use-ranges            suggests Boost.Ranges, which is not used here.
+#   -bugprone-easily-swappable-parameters
+#                                two bools next to each other are not a defect;
+#                                the call sites are checked by the compiler and
+#                                the tests.
+#   -cppcoreguidelines-avoid-do-while
+#                                "advance, then test" reads best as a do-while;
+#                                the loop bodies here are one call and one test.
+#   -cppcoreguidelines-avoid-magic-numbers / -readability-magic-numbers
+#                                constants have names here; what these flag is
+#                                mostly Qt's own enumerators (Qt::LeftButton,
+#                                QIODevice::ReadOnly, ...) and the 1000 in
+#                                "seconds * 1000".
+#   -cppcoreguidelines-non-private-member-variables-in-classes /
+#   -misc-non-private-member-variables-in-classes
+#                                no plain-data class in this project exposes its
+#                                members; on a Qt class the check cannot tell.
+#   -cppcoreguidelines-owning-memory
+#                                QWidget parent-child ownership is not GSL
+#                                ownership: the parent deletes its children, so
+#                                "new QLabel(this)" is not a leak and gsl::owner
+#                                would be wrong.
+#   -cppcoreguidelines-pro-bounds-array-to-pointer-decay /
+#   -cppcoreguidelines-pro-bounds-pointer-arithmetic /
+#   -cppcoreguidelines-pro-type-reinterpret-cast /
+#   -cppcoreguidelines-pro-type-vararg
+#                                only ever reached through Qt's own headers.
+#   -cppcoreguidelines-use-default-member-init
+#                                would repeat in the header what the constructor
+#                                already says for the few members that need it.
+#   -misc-include-cleaner        wants <qsize.h> instead of <QSize>; Qt's
+#                                forwarding headers are the documented way.
+#   -misc-no-recursion            recursion is not a defect in itself.
+#   -misc-use-anonymous-namespace / -misc-use-internal-linkage
+#                                free functions in a .cpp are static or in a
+#                                named namespace on purpose.
+#   -modernize-use-trailing-return-type
+#                                the project writes "QSize sizeHint() const",
+#                                like Qt itself does.
+#   -performance-enum-size       a 3-value enum in a GUI program does not need a
+#                                narrower base type, and Qt's signals use int.
+#   -readability-avoid-const-params-in-decls
+#                                Qt's API takes values and overrides must match.
+#   -readability-else-after-return
+#                                fine when the two branches are the two outcomes.
+#   -readability-identifier-length
+#                                i, n, x, y, dx: short names are the clearer ones.
+#   -readability-redundant-declaration
+#                                Qt's macros produce them, not this code.
+#   -readability-static-accessed-through-instance
+#                                Qt's enumerators are reached through the class.
+#   -readability-use-anyofallof  a loop is clearer than any_of on a plain range.
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -boost-use-ranges,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-use-default-member-init,
+  -misc-include-cleaner,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -misc-use-anonymous-namespace,
+  -misc-use-internal-linkage,
+  -modernize-use-trailing-return-type,
+  -performance-enum-size,
+  -readability-avoid-const-params-in-decls,
+  -readability-else-after-return,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-redundant-declaration,
+  -readability-static-accessed-through-instance,
+  -readability-use-anyofallof
+
+# A finding has to be fixable for it to be worth stopping a build, and in CI the
+# build itself stops on one.
+WarningsAsErrors: '*'
+
+# Only this project's headers are reported on; Qt's are not ours to change (and
+# they are included as system headers anyway).
+HeaderFilterRegex: '(src|test)/.*\.(h|hpp)$'
 FormatStyle:     none
 
+# The house style: Qt-like camel case, "m_" for members, "k" for constants.
 CheckOptions:
-  - key: readability-identifier-length.IgnoredVariableNames
-    value: 'x|y|z'
-  - key: readability-identifier-length.IgnoredParameterNames
-    value: 'x|y|z'
-
-
-
-
-
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k

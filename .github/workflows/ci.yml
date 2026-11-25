@@ -118,3 +118,51 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: ctest --test-dir build --output-on-failure
+
+  # The analysers are not part of the build matrix: they are slow, they only
+  # need one platform, and a finding should be its own red cross rather than a
+  # failed "linux gcc Qt 6 Release". Both are warnings-as-errors, so a finding
+  # stops the build (see .clang-tidy and cmake/StaticAnalyzers.cmake).
+  static-analysis:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: clang-tidy
+            analyser: CLANG_TIDY
+            # Pinned to the version the checks were tuned against: a new
+            # clang-tidy release adds checks, and that should be a deliberate
+            # change to .clang-tidy, not a red build one morning.
+            package: clang-tidy-18
+            program: /usr/bin/clang-tidy-18
+          - name: cppcheck
+            analyser: CPPCHECK
+            package: cppcheck
+            program: ''
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build libgl1-mesa-dev libxkbcommon-dev libfontconfig1 \
+            qt6-base-dev ${{ matrix.package }}
+
+      - name: Configure
+        run: |
+          args=(-DCMAKE_BUILD_TYPE=Debug
+                -DQTIMAGEVIEWER_QT_VERSION=6
+                -DQtImageViewer_ENABLE_${{ matrix.analyser }}=ON)
+          # Tell CMake which clang-tidy to use; it would look for an unversioned
+          # "clang-tidy" otherwise, which the pinned package does not install.
+          if [ -n "${{ matrix.program }}" ]; then
+            args+=(-DCLANGTIDY=${{ matrix.program }})
+          fi
+          cmake -S . -B build -G Ninja "${args[@]}" 
+
+      - name: Analyse and build
+        run: cmake --build build

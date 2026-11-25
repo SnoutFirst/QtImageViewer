@@ -148,6 +148,21 @@ way at the other end of a cycle.
 - The Qt platform plugin needs a display. On a headless machine, use
   `QT_QPA_PLATFORM=offscreen` for `--help`, `--version` or the test suite.
 
+## Static analysis
+
+`clang-tidy` and `cppcheck` are both warnings-as-errors and run in CI, one job
+each; the checks they are held to live in `.clang-tidy` and in
+`cmake/StaticAnalyzers.cmake`. Locally:
+
+```sh
+cmake -S . -B build -DQtImageViewer_ENABLE_CLANG_TIDY=ON -DQtImageViewer_ENABLE_CPPCHECK=ON
+cmake --build build       # a finding fails the build
+```
+
+Anything switched off in `.clang-tidy` is there with its reason; the clang-tidy
+job pins the version the checks were tuned against so a new release cannot turn
+the build red on its own.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright (c) 2026 d3fault.

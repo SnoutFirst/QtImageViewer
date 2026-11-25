@@ -32,15 +32,15 @@ class Playlist
 public:
   explicit Playlist(QStringList entries, PlaylistOrder order, QRandomGenerator *random = QRandomGenerator::global());
 
-  bool isEmpty() const;
-  int size() const;
-  PlaylistOrder order() const;
-  const QStringList &entries() const;
+  [[nodiscard]] bool isEmpty() const;
+  [[nodiscard]] int size() const;
+  [[nodiscard]] PlaylistOrder order() const;
+  [[nodiscard]] const QStringList &entries() const;
 
   //! The entry on screen; empty when isEmpty().
-  QString current() const;
+  [[nodiscard]] QString current() const;
   //! 1-based position of the current entry within its cycle; 0 when isEmpty().
-  int position() const;
+  [[nodiscard]] int position() const;
 
   //! Moves to the next entry, drawing a new cycle when the current one is used up.
   QString advance();
@@ -52,7 +52,7 @@ public:
 
 private:
   void startCycle(bool forwards, int boundary);
-  int currentEntry() const;
+  [[nodiscard]] int currentEntry() const;
 
   QStringList m_entries;
   PlaylistOrder m_order;

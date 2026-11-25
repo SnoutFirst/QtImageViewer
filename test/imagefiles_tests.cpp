@@ -48,7 +48,7 @@ TEST_CASE("Image file name suffixes are recognised regardless of case", "[imagef
 
 TEST_CASE("A directory contributes its image files, sorted, without descending by default", "[imagefiles]")
 {
-  QTemporaryDir root;
+  const QTemporaryDir root;
   REQUIRE(root.isValid());
 
   const QDir dir(root.path());
@@ -73,7 +73,7 @@ TEST_CASE("A directory contributes its image files, sorted, without descending b
 
 TEST_CASE("Files keep their command line order and are only added once", "[imagefiles]")
 {
-  QTemporaryDir root;
+  const QTemporaryDir root;
   REQUIRE(root.isValid());
 
   const QDir dir(root.path());
@@ -92,7 +92,7 @@ TEST_CASE("Files keep their command line order and are only added once", "[image
 
 TEST_CASE("A path that does not exist is a warning, not an image", "[imagefiles]")
 {
-  QTemporaryDir root;
+  const QTemporaryDir root;
   REQUIRE(root.isValid());
 
   const QDir dir(root.path());
@@ -104,7 +104,7 @@ TEST_CASE("A path that does not exist is a warning, not an image", "[imagefiles]
 
 TEST_CASE("A file named on the command line is shown even if its suffix says otherwise", "[imagefiles]")
 {
-  QTemporaryDir root;
+  const QTemporaryDir root;
   REQUIRE(root.isValid());
 
   const QDir dir(root.path());
@@ -120,7 +120,7 @@ TEST_CASE("A file named on the command line is shown even if its suffix says oth
 
 TEST_CASE("A directory symlink that points back up is not followed forever", "[imagefiles]")
 {
-  QTemporaryDir root;
+  const QTemporaryDir root;
   REQUIRE(root.isValid());
 
   const QDir dir(root.path());

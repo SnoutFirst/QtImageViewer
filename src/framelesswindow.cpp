@@ -66,10 +66,10 @@ Qt::Edges FramelessWindow::edgesAt(const QPointF &position) const
 
 void FramelessWindow::showResizeCursor(Qt::Edges edges)
 {
-  const bool left = edges & Qt::LeftEdge;
-  const bool right = edges & Qt::RightEdge;
-  const bool top = edges & Qt::TopEdge;
-  const bool bottom = edges & Qt::BottomEdge;
+  const bool left = (edges & Qt::LeftEdge) != 0;
+  const bool right = (edges & Qt::RightEdge) != 0;
+  const bool top = (edges & Qt::TopEdge) != 0;
+  const bool bottom = (edges & Qt::BottomEdge) != 0;
 
   if ((left && top) || (right && bottom)) {
     setCursor(Qt::SizeFDiagCursor);
@@ -101,14 +101,14 @@ void FramelessWindow::mousePressEvent(QMouseEvent *event)
   m_pressGlobal = globalPosition(event).toPoint();
   m_pressGeometry = geometry();
   m_grabEdges = edgesAt(localPosition(event));
-  m_grab = m_grabEdges ? Grab::Resize : Grab::Move;
+  m_grab = (m_grabEdges != Qt::Edges{}) ? Grab::Resize : Grab::Move;
 
   // Let the window system do the work where it can: that is what keeps snapping,
   // tiling and the native resize behaviour. Everywhere else the handlers below
   // do it themselves, which is also what happens when there is no window manager.
   m_systemGrab = false;
   if (QWindow *handle = windowHandle()) {
-    m_systemGrab = m_grabEdges ? handle->startSystemResize(m_grabEdges) : handle->startSystemMove();
+    m_systemGrab = (m_grabEdges != Qt::Edges{}) ? handle->startSystemResize(m_grabEdges) : handle->startSystemMove();
   }
 
   event->accept();
@@ -151,7 +151,7 @@ void FramelessWindow::mouseReleaseEvent(QMouseEvent *event)
 
 void FramelessWindow::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  if (event->button() != Qt::LeftButton || m_grabEdges) {
+  if (event->button() != Qt::LeftButton || m_grabEdges != Qt::Edges{}) {
     // A double click on an edge belongs to the resize, not to full screen.
     QWidget::mouseDoubleClickEvent(event);
     return;
@@ -193,15 +193,15 @@ void FramelessWindow::resizeTo(const QPointF &globalPosition)
 
   // Dragging the left or top edge moves the window as well as changing its size,
   // so the opposite edge has to stay where it is: move the edge, then clamp it.
-  if (m_grabEdges & Qt::LeftEdge) {
+  if ((m_grabEdges & Qt::LeftEdge) != 0) {
     geometry.setLeft(std::min(geometry.left() + delta.x(), geometry.right() - minimum.width() + 1));
-  } else if (m_grabEdges & Qt::RightEdge) {
+  } else if ((m_grabEdges & Qt::RightEdge) != 0) {
     geometry.setRight(std::max(geometry.right() + delta.x(), geometry.left() + minimum.width() - 1));
   }
 
-  if (m_grabEdges & Qt::TopEdge) {
+  if ((m_grabEdges & Qt::TopEdge) != 0) {
     geometry.setTop(std::min(geometry.top() + delta.y(), geometry.bottom() - minimum.height() + 1));
-  } else if (m_grabEdges & Qt::BottomEdge) {
+  } else if ((m_grabEdges & Qt::BottomEdge) != 0) {
     geometry.setBottom(std::max(geometry.bottom() + delta.y(), geometry.top() + minimum.height() - 1));
   }
 

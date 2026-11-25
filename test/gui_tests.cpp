@@ -57,7 +57,8 @@ void sendKey(QWidget *widget, int key)
 
 TEST_CASE("The window has no frame", "[gui]")
 {
-  imgview::FramelessWindow window;
+  // Assertions only, so the window can be const and the test says so.
+  const imgview::FramelessWindow window;
 
   REQUIRE(window.windowType() == Qt::Window);
   REQUIRE(window.windowFlags().testFlag(Qt::FramelessWindowHint));
@@ -177,7 +178,7 @@ TEST_CASE("A full screen window is neither moved nor resized", "[gui]")
 
 TEST_CASE("The viewer shows the playlist and steps through it", "[gui]")
 {
-  QTemporaryDir directory;
+  const QTemporaryDir directory;
   REQUIRE(directory.isValid());
   REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
   REQUIRE(writePng(directory.filePath(QStringLiteral("b.png")), Qt::green));
@@ -239,7 +240,7 @@ TEST_CASE("A viewer without images says so instead of showing nothing", "[gui]")
 
 TEST_CASE("Verbose mode draws the file name and the image details over the image", "[gui]")
 {
-  QTemporaryDir directory;
+  const QTemporaryDir directory;
   REQUIRE(directory.isValid());
   REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
   REQUIRE(writePng(directory.filePath(QStringLiteral("b.png")), Qt::green));

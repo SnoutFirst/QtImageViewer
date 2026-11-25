@@ -195,6 +195,11 @@ macro(QtImageViewer_local_options)
 
   include(cmake/StaticAnalyzers.cmake)
   if(QtImageViewer_ENABLE_CLANG_TIDY)
+    # GCC asks for C++20 modules in the compile command (-fmodules-ts,
+    # -fdeps-format=...) and clang-tidy, which replays that command, knows none
+    # of those arguments. The project does not use modules, so the scanning can
+    # go: this keeps the flags out of the commands clang-tidy is given.
+    set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
     QtImageViewer_enable_clang_tidy(QtImageViewer_options ${QtImageViewer_WARNINGS_AS_ERRORS})
   endif()
 

@@ -18,7 +18,7 @@ macro(QtImageViewer_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
       # Enable all warnings that are actionable by the user of this toolset
       # style should enable the other 3, but we'll be explicit just in case
       set(SUPPRESS_DIR "*:${CMAKE_CURRENT_BINARY_DIR}/_deps/*.h")
-      set(CMAKE_CXX_CPPCHECK
+      set(cppcheck_options
           ${CPPCHECK}
           --template=${CPPCHECK_TEMPLATE}
           --enable=style,performance,warning,portability
@@ -35,25 +35,31 @@ macro(QtImageViewer_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
           --suppress=preprocessorErrorDirective
           # ignores static_assert type failures
           --suppress=knownConditionTrueFalse
+          # analysing every branch is the point of running it at all
+          --check-level=exhaustive
           --inconclusive
           --suppress=${SUPPRESS_DIR})
     else()
       # if the user provides a CPPCHECK_OPTIONS with a template specified, it will override this template
-      set(CMAKE_CXX_CPPCHECK ${CPPCHECK} --template=${CPPCHECK_TEMPLATE} ${CPPCHECK_OPTIONS})
+      set(cppcheck_options ${CPPCHECK} --template=${CPPCHECK_TEMPLATE} ${CPPCHECK_OPTIONS})
     endif()
 
     if(NOT
        "${CMAKE_CXX_STANDARD}"
        STREQUAL
        "")
-      set(CMAKE_CXX_CPPCHECK ${CMAKE_CXX_CPPCHECK} --std=c++${CMAKE_CXX_STANDARD})
+      list(APPEND cppcheck_options --std=c++${CMAKE_CXX_STANDARD})
     endif()
     if(${WARNINGS_AS_ERRORS})
-      list(APPEND CMAKE_CXX_CPPCHECK --error-exitcode=2)
+      list(APPEND cppcheck_options --error-exitcode=2)
     endif()
 
+    # Stored for the per-target property below, *not* in CMAKE_CXX_CPPCHECK:
+    # that variable would apply cppcheck to every target created from then on,
+    # Catch2 included, and third party code cannot pass a warnings-as-errors
+    # policy we did not write.
     set(QtImageViewer_CPPCHECK_OPTIONS
-        "${CMAKE_CXX_CPPCHECK}"
+        "${cppcheck_options}"
         CACHE INTERNAL "cppcheck command line used by QtImageViewer_apply_static_analysers")
   else()
     message(WARNING "cppcheck requested but executable not found")
