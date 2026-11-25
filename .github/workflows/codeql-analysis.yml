@@ -34,8 +34,13 @@ jobs:
 
       - name: Configure and build
         run: |
+          # No tests and no sanitizers: the analysis is about the code, and
+          # address sanitizer fights the tracer CodeQL preloads into the build.
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DQTIMAGEVIEWER_QT_VERSION=6 -DGIT_SHA=${GITHUB_SHA}
+            -DQTIMAGEVIEWER_QT_VERSION=6 -DGIT_SHA=${GITHUB_SHA} \
+            -DBUILD_TESTING=OFF -DQtImageViewer_ENABLE_IPO=OFF \
+            -DQtImageViewer_ENABLE_SANITIZER_ADDRESS=OFF \
+            -DQtImageViewer_ENABLE_SANITIZER_UNDEFINED=OFF
           cmake --build build
 
       - name: Perform CodeQL Analysis

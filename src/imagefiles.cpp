@@ -19,6 +19,15 @@ namespace {
     return suffixes;
   }
 
+  //! Whether \a name is one that a directory scan should leave alone.
+  bool isHiddenName(const QString &name)
+  {
+    // QDir drops the entries the platform calls hidden (the hidden attribute on
+    // Windows) and the leading dots here, so a name starting with a dot is skipped
+    // everywhere: ".thumbnails" or ".DS_Store.png" is not a photo on any platform.
+    return name.startsWith(QLatin1Char('.'));
+  }
+
   //! Identity of \a path for duplicate detection; resolves symlinks when it can.
   QString identityOf(const QString &path)
   {
@@ -54,6 +63,7 @@ namespace {
 
     const QStringList names = dir.entryList(QDir::Files | QDir::Readable, QDir::Name);
     for (const QString &name : names) {
+      if (isHiddenName(name)) { continue; }
       const QString path = dir.absoluteFilePath(name);
       if (hasImageSuffix(path)) { addFile(path, seen, scan); }
     }
@@ -61,7 +71,10 @@ namespace {
     if (!recursive) { return; }
 
     const QStringList subdirectories = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-    for (const QString &name : subdirectories) { scanDirectory(dir.absoluteFilePath(name), true, visited, seen, scan); }
+    for (const QString &name : subdirectories) {
+      if (isHiddenName(name)) { continue; }
+      scanDirectory(dir.absoluteFilePath(name), true, visited, seen, scan);
+    }
   }
 
 }// namespace

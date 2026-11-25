@@ -115,8 +115,9 @@ way at the other end of a cycle.
 - Images are decoded at full resolution — there is no downscaled decoding for
   huge files.
 - A file reachable through more than one argument is only shown once.
-- Hidden files and directories are ignored when scanning a directory, and
-  symlinks to directories are followed once, not in circles.
+- Files and directories whose name starts with a dot are ignored when scanning a
+  directory (as are entries the platform marks as hidden), and symlinks to
+  directories are followed once, not in circles.
 - The Qt platform plugin needs a display. On a headless machine, use
   `QT_QPA_PLATFORM=offscreen` for `--help`, `--version` or the test suite.
 

@@ -27,8 +27,9 @@ QStringList supportedImageSuffixes();
  * A file argument is taken as it is: an argument the user names explicitly is
  * shown, or reported as unreadable by the viewer if it turns out not to be an
  * image. A directory argument contributes the image files it contains, sorted by
- * name, and with \a recursive also those of its subdirectories. Hidden entries
- * are ignored, as are files that can be reached through more than one argument.
+ * name, and with \a recursive also those of its subdirectories. Entries whose
+ * name starts with a dot, and entries the platform marks as hidden, are ignored,
+ * as are files that can be reached through more than one argument.
  */
 ImageScan collectImages(const QStringList &paths, bool recursive);
 
