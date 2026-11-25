@@ -128,9 +128,13 @@ function(QtImageViewer_package_project)
   list(APPEND _PackageProject_PRIVATE_DEPENDENCIES ${_PRIVATE_DEPENDENCIES_CONFIG})
 
   # Installation of package (compatible with vcpkg, etc)
+  # BUNDLE DESTINATION is required for a MACOSX_BUNDLE executable: without it
+  # the install rule is an error on macOS ("install TARGETS given no BUNDLE
+  # DESTINATION for MACOSX_BUNDLE executable").
   install(
     TARGETS ${_PackageProject_TARGETS}
     EXPORT ${_PackageProject_EXPORT}
+    BUNDLE DESTINATION "." COMPONENT bin
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT shlib
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT bin

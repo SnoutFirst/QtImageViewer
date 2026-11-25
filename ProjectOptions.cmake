@@ -92,9 +92,15 @@ macro(QtImageViewer_setup_options)
     option(QtImageViewer_ENABLE_SANITIZER_THREAD "Enable thread sanitizer" OFF)
     option(QtImageViewer_ENABLE_SANITIZER_MEMORY "Enable memory sanitizer" OFF)
     option(QtImageViewer_ENABLE_UNITY_BUILD "Enable unity builds" OFF)
-    option(QtImageViewer_ENABLE_CLANG_TIDY "Enable clang-tidy" ON)
+    # The analysers are OFF by default: the template's .clang-tidy asks for every
+    # check with warnings as errors, which is not a useful signal for code that
+    # includes Qt headers (and clang-tidy 19 segfaults on it), and cppcheck takes
+    # several minutes per translation unit here. Turn them on per build with
+    # -DQtImageViewer_ENABLE_CLANG_TIDY=ON / -DQtImageViewer_ENABLE_CPPCHECK=ON;
+    # the build itself is warnings-as-errors either way.
+    option(QtImageViewer_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
     option(QtImageViewer_ENABLE_INCLUDE_WHAT_YOU_USE "Enable include-what-you-use" OFF)
-    option(QtImageViewer_ENABLE_CPPCHECK "Enable cpp-check analysis" ON)
+    option(QtImageViewer_ENABLE_CPPCHECK "Enable cpp-check analysis" OFF)
     option(QtImageViewer_ENABLE_PCH "Enable precompiled headers" OFF)
     option(QtImageViewer_ENABLE_CACHE "Enable ccache" ON)
   endif()

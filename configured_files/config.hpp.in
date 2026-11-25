@@ -1,8 +1,11 @@
-#ifndef QtImageViewer_CONFIG_HPP
-#define QtImageViewer_CONFIG_HPP
 
-// this is a basic example of how a CMake configured file might look
-// in this particular case, we are using it to set the version number of our executable
+#ifndef QTIMAGEVIEWER_CONFIG_HPP
+#define QTIMAGEVIEWER_CONFIG_HPP
+
+#include <string_view>
+
+// The values below are filled in by CMake, so that the program knows which
+// version it was built as without anyone having to keep two numbers in sync.
 namespace QtImageViewer::cmake {
 inline constexpr std::string_view project_name = "@PROJECT_NAME@";
 inline constexpr std::string_view project_version = "@PROJECT_VERSION@";

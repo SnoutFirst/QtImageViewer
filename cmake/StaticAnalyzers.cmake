@@ -1,3 +1,9 @@
+# The analysers are configured once, and then switched on *per target* with
+# QtImageViewer_apply_static_analysers(). Setting CMAKE_CXX_CLANG_TIDY or
+# CMAKE_CXX_CPPCHECK instead would apply them to everything built afterwards,
+# including the third party dependencies CPM downloads, which are not ours to
+# fix and cannot pass a warnings-as-errors policy.
+
 macro(QtImageViewer_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
   find_program(CPPCHECK cppcheck)
   if(CPPCHECK)
@@ -12,7 +18,6 @@ macro(QtImageViewer_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
       # Enable all warnings that are actionable by the user of this toolset
       # style should enable the other 3, but we'll be explicit just in case
       set(SUPPRESS_DIR "*:${CMAKE_CURRENT_BINARY_DIR}/_deps/*.h")
-      message(STATUS "CPPCHECK_OPTIONS suppress: ${SUPPRESS_DIR}")
       set(CMAKE_CXX_CPPCHECK
           ${CPPCHECK}
           --template=${CPPCHECK_TEMPLATE}
@@ -46,6 +51,10 @@ macro(QtImageViewer_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
     if(${WARNINGS_AS_ERRORS})
       list(APPEND CMAKE_CXX_CPPCHECK --error-exitcode=2)
     endif()
+
+    set(QtImageViewer_CPPCHECK_OPTIONS
+        "${CMAKE_CXX_CPPCHECK}"
+        CACHE INTERNAL "cppcheck command line used by QtImageViewer_apply_static_analysers")
   else()
     message(WARNING "cppcheck requested but executable not found")
   endif()
@@ -97,8 +106,9 @@ macro(QtImageViewer_enable_clang_tidy target WARNINGS_AS_ERRORS)
       list(APPEND CLANG_TIDY_OPTIONS -warnings-as-errors=*)
     endif()
 
-    message("Also setting clang-tidy globally")
-    set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_OPTIONS})
+    set(QtImageViewer_CLANG_TIDY_OPTIONS
+        "${CLANG_TIDY_OPTIONS}"
+        CACHE INTERNAL "clang-tidy command line used by QtImageViewer_apply_static_analysers")
   else()
     message(WARNING "clang-tidy requested but executable not found")
   endif()
@@ -107,8 +117,23 @@ endmacro()
 macro(QtImageViewer_enable_include_what_you_use)
   find_program(INCLUDE_WHAT_YOU_USE include-what-you-use)
   if(INCLUDE_WHAT_YOU_USE)
-    set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${INCLUDE_WHAT_YOU_USE})
+    set(QtImageViewer_INCLUDE_WHAT_YOU_USE_OPTIONS
+        "${INCLUDE_WHAT_YOU_USE}"
+        CACHE INTERNAL "include-what-you-use command line used by QtImageViewer_apply_static_analysers")
   else()
     message(WARNING "include-what-you-use requested but executable not found")
+  endif()
+endmacro()
+
+#! Switches on whichever analysers were enabled, for \a target and its sources only.
+macro(QtImageViewer_apply_static_analysers target)
+  if(QtImageViewer_CLANG_TIDY_OPTIONS)
+    set_target_properties(${target} PROPERTIES CXX_CLANG_TIDY "${QtImageViewer_CLANG_TIDY_OPTIONS}")
+  endif()
+  if(QtImageViewer_CPPCHECK_OPTIONS)
+    set_target_properties(${target} PROPERTIES CXX_CPPCHECK "${QtImageViewer_CPPCHECK_OPTIONS}")
+  endif()
+  if(QtImageViewer_INCLUDE_WHAT_YOU_USE_OPTIONS)
+    set_target_properties(${target} PROPERTIES CXX_INCLUDE_WHAT_YOU_USE "${QtImageViewer_INCLUDE_WHAT_YOU_USE_OPTIONS}")
   endif()
 endmacro()

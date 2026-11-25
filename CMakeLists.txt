@@ -1,15 +1,15 @@
-cmake_minimum_required(VERSION 3.29)
+cmake_minimum_required(VERSION 3.21)
 
 # Disable modules support, this is broken with clang-tidy at the moment
-cmake_policy(SET CMP0155 OLD) 
+cmake_policy(SET CMP0155 OLD)
 
-# This template attempts to be "fetch_content"-able
+# This project attempts to be "fetch_content"-able
 # so that it works well with tools like CPM or other
 # manual dependency management
 
 # Only set the cxx_standard if it is not set by someone else
-if (NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 23)
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
 endif()
 
 # strongly encouraged to enable this globally to avoid conflicts between
@@ -20,21 +20,25 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the project name and language
 project(
   QtImageViewer
-  VERSION 0.0.2
-  DESCRIPTION ""
+  VERSION 1.0.0
+  DESCRIPTION "A basic Qt Widgets image viewer"
   HOMEPAGE_URL "https://github.com/SnoutFirst/QtImageViewer"
-  LANGUAGES CXX C)
+  LANGUAGES CXX)
+
+# QtImageViewer is a desktop application. The one platform this deliberately
+# does not build for is the web: there is no QWidget there, so an Emscripten
+# build could only ever be a different program.
+if(EMSCRIPTEN)
+  message(FATAL_ERROR "QtImageViewer is a desktop application: WebAssembly builds are not supported.")
+endif()
 
 include(cmake/PreventInSourceBuilds.cmake)
-include(cmake/Emscripten.cmake)
 include(ProjectOptions.cmake)
-
 
 QtImageViewer_setup_options()
 
 QtImageViewer_global_options()
 include(Dependencies.cmake)
-QtImageViewer_setup_dependencies()
 
 QtImageViewer_local_options()
 
@@ -55,19 +59,11 @@ target_compile_features(QtImageViewer_options INTERFACE cxx_std_${CMAKE_CXX_STAN
 add_library(QtImageViewer::QtImageViewer_options ALIAS QtImageViewer_options)
 add_library(QtImageViewer::QtImageViewer_warnings ALIAS QtImageViewer_warnings)
 
-#add_library(QtImageViewer::QtImageViewer_options INTERFACE IMPORTED)
-#add_library(QtImageViewer::QtImageViewer_warnings INTERFACE IMPORTED)
-
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
 
 # Adding the src:
 add_subdirectory(src)
-
-# Create unified web deployment directory (for WASM builds)
-if(EMSCRIPTEN)
-  QtImageViewer_create_web_dist()
-endif()
 
 # Don't even look at tests if we're not top level
 if(NOT PROJECT_IS_TOP_LEVEL)
@@ -78,18 +74,7 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
-  message(AUTHOR_WARNING "Building Tests. Be sure to check out test/constexpr_tests.cpp for constexpr testing")
   add_subdirectory(test)
-endif()
-
-
-if(QtImageViewer_BUILD_FUZZ_TESTS)
-  message(AUTHOR_WARNING "Building Fuzz Tests, using fuzzing sanitizer https://www.llvm.org/docs/LibFuzzer.html")
-  if (NOT QtImageViewer_ENABLE_SANITIZER_ADDRESS AND NOT QtImageViewer_ENABLE_SANITIZER_THREAD)
-    message(WARNING "You need asan or tsan enabled for meaningful fuzz testing")
-  endif()
-  add_subdirectory(fuzz_test)
-
 endif()
 
 # If MSVC is being used, and ASAN is enabled, we need to set the debugger environment
@@ -101,7 +86,7 @@ if(MSVC)
 endif()
 
 # set the startup project for the "play" button in MSVC
-set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT intro)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT QtImageViewer)
 
 if(CMAKE_SKIP_INSTALL_RULES)
   return()
@@ -111,14 +96,7 @@ include(cmake/PackageProject.cmake)
 
 # Add other targets that you want installed here, by default we just package the one executable
 # we know we want to ship
-QtImageViewer_package_project(
-  TARGETS
-  intro
-  QtImageViewer_options
-  QtImageViewer_warnings
-  # FIXME: this does not work! CK
-  # PRIVATE_DEPENDENCIES_CONFIGURED project_options project_warnings
-)
+QtImageViewer_package_project(TARGETS QtImageViewer QtImageViewer_options QtImageViewer_warnings)
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you

@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.15...3.23)
+cmake_minimum_required(VERSION 3.21...3.31)
 
-project(CmakeConfigPackageTests 
+project(CmakeConfigPackageTests
   VERSION ${PROJECT_VERSION}
   LANGUAGES CXX)
 
@@ -9,29 +9,68 @@ project(CmakeConfigPackageTests
 if(PROJECT_IS_TOP_LEVEL OR TEST_INSTALLED_VERSION)
   enable_testing()
 
-  find_package(QtImageViewer CONFIG REQUIRED) # for intro, project_options, ...
+  find_package(QtImageViewer CONFIG REQUIRED) # for the options/warnings targets
 
   if(NOT TARGET QtImageViewer_options)
     message(FATAL_ERROR "Required config package not found!")
-    return() # be strictly paranoid for Template Janitor github action! CK
   endif()
 endif()
 
 # ---- Dependencies ----
 
+# CPM is pulled in by the top level Dependencies.cmake; the tests can also be
+# configured on their own, so make sure it is there.
+if(NOT COMMAND cpmaddpackage)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/CPM.cmake)
+endif()
+
+if(NOT TARGET Catch2::Catch2WithMain)
+  cpmaddpackage(
+    NAME Catch2
+    VERSION 3.12.0
+    GITHUB_REPOSITORY "catchorg/Catch2"
+    SYSTEM YES)
+endif()
+
 include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
 
-# Regression test for issue #139: ensure windows-clang preset actually disables
-# cppcheck/clang-tidy by setting the real project option names.
-add_test(
-  NAME presets.windows_disables_static_analysis
-  COMMAND
-    ${CMAKE_COMMAND}
-    -DPRESETS_FILE=${CMAKE_SOURCE_DIR}/CMakePresets.json
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/test_cmake_presets.cmake)
+# ---- Tests ----
 
-# Provide a simple smoke test to make sure that the CLI works and can display a --help message
-add_test(NAME cli.has_help COMMAND intro --help)
+# The playlist and image-scanning code is the part with the interesting rules
+# ("every image once before repeating", recursion, duplicate suppression), so it
+# is the part that is unit tested.
+add_executable(tests main.cpp playlist_tests.cpp imagefiles_tests.cpp)
+target_link_libraries(
+  tests
+  PRIVATE QtImageViewer::QtImageViewer_options
+          QtImageViewer::QtImageViewer_warnings
+          QtImageViewer::Core
+          Catch2::Catch2WithMain)
+
+QtImageViewer_apply_static_analysers(tests)
+QtImageViewer_configure_linker(tests)
+
+if(WIN32 AND BUILD_SHARED_LIBS)
+  add_custom_command(
+    TARGET tests
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:tests> $<TARGET_FILE_DIR:tests>
+    COMMAND_EXPAND_LISTS)
+endif()
+
+# automatically discover the test cases defined in catch based test files
+catch_discover_tests(
+  tests
+  TEST_PREFIX
+  "unittests."
+  REPORTER
+  XML
+  OUTPUT_DIR
+  .
+  OUTPUT_PREFIX
+  "unittests."
+  OUTPUT_SUFFIX
+  .xml)
 
 # CMake-script regression tests for cmake/Sanitizers.cmake (issue #141).
 add_test(
@@ -43,93 +82,31 @@ add_test(
   COMMAND ${CMAKE_COMMAND} -P
           ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_non_apple_includes_leak.cmake)
 
-# Provide a test to verify that the version being reported from the application
-# matches the version given to CMake. This will be important once you package
-# your program. Real world shows that this is the kind of simple mistake that is easy
-# to make, but also easy to test for.
-add_test(NAME cli.version_matches COMMAND intro --version)
-set_tests_properties(cli.version_matches PROPERTIES PASS_REGULAR_EXPRESSION "${PROJECT_VERSION}")
+# The presets have to disable the analysers on Windows with the project's own
+# option names, or a from scratch build fails there.
+add_test(
+  NAME presets.windows_disables_static_analysis
+  COMMAND
+    ${CMAKE_COMMAND}
+    -DPRESETS_FILE=${CMAKE_SOURCE_DIR}/CMakePresets.json
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/test_cmake_presets.cmake)
 
-add_executable(tests tests.cpp)
-target_link_libraries(
-  tests
-  PRIVATE QtImageViewer::QtImageViewer_warnings
-          QtImageViewer::QtImageViewer_options
-          QtImageViewer::sample_library
-          Catch2::Catch2WithMain)
+# The command line is part of the program: the version it reports has to be the
+# version it was built as, and it has to be able to explain itself.
+#
+# A window system is not needed for either, but a QApplication still wants a Qt
+# platform plugin, hence QT_QPA_PLATFORM=offscreen.
+if(NOT WIN32)
+  add_test(NAME cli.reports_version COMMAND QtImageViewer --version)
+  set_tests_properties(cli.reports_version PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                                                         PASS_REGULAR_EXPRESSION "${PROJECT_VERSION}")
 
-QtImageViewer_configure_linker(tests)
+  add_test(NAME cli.explains_itself COMMAND QtImageViewer --help)
+  set_tests_properties(cli.explains_itself PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                                                        PASS_REGULAR_EXPRESSION "--no-recurse")
 
-if(WIN32 AND BUILD_SHARED_LIBS)
-  add_custom_command(
-    TARGET tests
-    PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:tests> $<TARGET_FILE_DIR:tests>
-    COMMAND_EXPAND_LISTS)
+  # No images at all is a usage error, not a window with nothing in it.
+  add_test(NAME cli.rejects_empty_command_line COMMAND QtImageViewer)
+  set_tests_properties(cli.rejects_empty_command_line PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                                                                WILL_FAIL TRUE)
 endif()
-
-# automatically discover tests that are defined in catch based test files you can modify the unittests. Set TEST_PREFIX
-# to whatever you want, or use different for different binaries
-catch_discover_tests(
-  tests
-  TEST_PREFIX
-  "unittests."
-  REPORTER
-  XML
-  OUTPUT_DIR
-  .
-  OUTPUT_PREFIX
-  "unittests."
-  OUTPUT_SUFFIX
-  .xml)
-
-# Add a file containing a set of constexpr tests
-add_executable(constexpr_tests constexpr_tests.cpp)
-target_link_libraries(
-  constexpr_tests
-  PRIVATE QtImageViewer::QtImageViewer_warnings
-          QtImageViewer::QtImageViewer_options
-          QtImageViewer::sample_library
-          Catch2::Catch2WithMain)
-
-QtImageViewer_configure_linker(constexpr_tests)
-
-catch_discover_tests(
-  constexpr_tests
-  TEST_PREFIX
-  "constexpr."
-  REPORTER
-  XML
-  OUTPUT_DIR
-  .
-  OUTPUT_PREFIX
-  "constexpr."
-  OUTPUT_SUFFIX
-  .xml)
-
-# Disable the constexpr portion of the test, and build again this allows us to have an executable that we can debug when
-# things go wrong with the constexpr testing
-add_executable(relaxed_constexpr_tests constexpr_tests.cpp)
-target_link_libraries(
-  relaxed_constexpr_tests
-  PRIVATE QtImageViewer::QtImageViewer_warnings
-          QtImageViewer::QtImageViewer_options
-          QtImageViewer::sample_library
-          Catch2::Catch2WithMain)
-target_compile_definitions(relaxed_constexpr_tests PRIVATE -DCATCH_CONFIG_RUNTIME_STATIC_REQUIRE)
-
-QtImageViewer_configure_linker(relaxed_constexpr_tests)
-
-
-catch_discover_tests(
-  relaxed_constexpr_tests
-  TEST_PREFIX
-  "relaxed_constexpr."
-  REPORTER
-  XML
-  OUTPUT_DIR
-  .
-  OUTPUT_PREFIX
-  "relaxed_constexpr."
-  OUTPUT_SUFFIX
-  .xml)

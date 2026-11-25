@@ -1,83 +1,34 @@
-include(cmake/CPM.cmake)
+# Qt is not fetched: it is a system dependency, provided by the distribution
+# (qt6-base-dev or qtbase5-dev on Debian and Ubuntu), by Homebrew on macOS, or
+# by the Qt online installer / aqtinstall on Windows. There are no other
+# dependencies; the unit tests fetch Catch2 through CPM inside test/CMakeLists.txt.
 
-# Done as a function so that updates to variables like
-# CMAKE_CXX_FLAGS don't propagate out to other
-# targets
-function(QtImageViewer_setup_dependencies)
+# Which Qt to build against. "AUTO" takes Qt 6 when it can be found and falls
+# back to Qt 5; set it to 5 or 6 to build against exactly that major version.
+set(QTIMAGEVIEWER_QT_VERSION
+    "AUTO"
+    CACHE STRING "Qt major version to build against: AUTO, 5 or 6")
+set_property(CACHE QTIMAGEVIEWER_QT_VERSION PROPERTY STRINGS AUTO 5 6)
 
-  # For each dependency, see if it's
-  # already been provided to us by a parent project
+if(QTIMAGEVIEWER_QT_VERSION STREQUAL "AUTO")
+  find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
+elseif(QTIMAGEVIEWER_QT_VERSION MATCHES "^[56]$")
+  find_package(Qt${QTIMAGEVIEWER_QT_VERSION} REQUIRED COMPONENTS Widgets)
+  set(QT_VERSION_MAJOR ${QTIMAGEVIEWER_QT_VERSION})
+else()
+  message(FATAL_ERROR "QTIMAGEVIEWER_QT_VERSION must be AUTO, 5 or 6, not \"${QTIMAGEVIEWER_QT_VERSION}\"")
+endif()
 
-  if(NOT TARGET fmtlib::fmtlib)
-    cpmaddpackage(
-      NAME
-      fmt
-      GITHUB_REPOSITORY
-      "fmtlib/fmt"
-      GIT_TAG
-      "12.1.0"
-      SYSTEM
-      YES)
-  endif()
+# NOTE: find_package(Qt...) has to run at *directory* scope, not inside a
+# function() or a macro(): it sets variables such as QT_CMAKE_EXPORT_NAMESPACE
+# that are still needed when a target is finalized at the end of its own
+# CMakeLists.txt, and those die with the function scope.
 
-  if(NOT TARGET spdlog::spdlog)
-    cpmaddpackage(
-      NAME
-      spdlog
-      VERSION
-      1.17.0
-      GITHUB_REPOSITORY
-      "gabime/spdlog"
-      SYSTEM
-      YES
-      OPTIONS
-      "SPDLOG_FMT_EXTERNAL ON")
-  endif()
+# Widgets pulls in Gui and Core, so all three are available. The non-widget part
+# of the program (playlist, file scanning) only needs Gui: it decodes images with
+# QImageReader, which needs no window system.
+set(QTIMAGEVIEWER_QT_CORE Qt${QT_VERSION_MAJOR}::Core)
+set(QTIMAGEVIEWER_QT_GUI Qt${QT_VERSION_MAJOR}::Gui)
+set(QTIMAGEVIEWER_QT_WIDGETS Qt${QT_VERSION_MAJOR}::Widgets)
 
-  if(NOT TARGET Catch2::Catch2WithMain)
-    cpmaddpackage(
-      NAME
-      Catch2
-      VERSION
-      3.12.0
-      GITHUB_REPOSITORY
-      "catchorg/Catch2"
-      SYSTEM
-      YES)
-  endif()
-
-  if(NOT TARGET CLI11::CLI11)
-    cpmaddpackage(
-      NAME
-      CLI11
-      VERSION
-      2.6.1
-      GITHUB_REPOSITORY
-      "CLIUtils/CLI11"
-      SYSTEM
-      YES)
-  endif()
-
-  if(NOT TARGET ftxui::screen)
-    cpmaddpackage(
-      NAME
-      FTXUI
-      VERSION
-      6.1.9
-      GITHUB_REPOSITORY
-      "ArthurSonzogni/FTXUI"
-      SYSTEM
-      YES)
-  endif()
-
-  if(NOT TARGET tools::tools)
-    cpmaddpackage(
-      NAME
-      tools
-      GITHUB_REPOSITORY
-      "lefticus/tools"
-      GIT_TAG
-      "main")
-  endif()
-
-endfunction()
+message(STATUS "QtImageViewer: building against Qt ${Qt${QT_VERSION_MAJOR}_VERSION}")
