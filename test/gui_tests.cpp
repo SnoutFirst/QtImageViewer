@@ -1,0 +1,234 @@
+#include "catch_qt.h"
+
+#include "framelesswindow.h"
+#include "imagefiles.h"
+#include "imageview.h"
+#include "mainwindow.h"
+#include "playlist.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <QCoreApplication>
+#include <QImage>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QMouseEvent>
+#include <QTemporaryDir>
+
+namespace {
+
+bool writePng(const QString &path, QRgb colour)
+{
+  QImage image(48, 32, QImage::Format_RGB32);
+  image.fill(colour);
+  return image.save(path, "PNG");
+}
+
+void sendMouse(QWidget *widget, QEvent::Type type, const QPoint &position)
+{
+  QMouseEvent event(type,
+                    QPointF(position),
+                    QPointF(widget->mapToGlobal(position)),
+                    Qt::LeftButton,
+                    type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::LeftButton,
+                    Qt::NoModifier);
+  QCoreApplication::sendEvent(widget, &event);
+}
+
+//! A press, a drag to \a delta from the press position, and the release.
+void drag(QWidget *widget, const QPoint &from, const QPoint &delta)
+{
+  sendMouse(widget, QEvent::MouseButtonPress, from);
+  sendMouse(widget, QEvent::MouseMove, from + delta);
+  sendMouse(widget, QEvent::MouseButtonRelease, from + delta);
+}
+
+void sendKey(QWidget *widget, int key)
+{
+  QKeyEvent event(QEvent::KeyPress, key, Qt::NoModifier);
+  QCoreApplication::sendEvent(widget, &event);
+}
+
+}// namespace
+
+TEST_CASE("The window has no frame", "[gui]")
+{
+  imgview::FramelessWindow window;
+
+  REQUIRE(window.windowType() == Qt::Window);
+  REQUIRE(window.windowFlags().testFlag(Qt::FramelessWindowHint));
+  REQUIRE(window.hasMouseTracking());
+}
+
+TEST_CASE("Dragging the window moves it", "[gui]")
+{
+  imgview::FramelessWindow window;
+  window.resize(400, 300);
+  window.show();
+  window.move(120, 80);
+
+  const QPoint before = window.pos();
+  drag(&window, QPoint(200, 150), QPoint(40, 25));
+
+  REQUIRE(window.pos() == before + QPoint(40, 25));
+  // ... and the size is none of the drag's business.
+  REQUIRE(window.size() == QSize(400, 300));
+}
+
+TEST_CASE("Dragging near an edge resizes the window", "[gui]")
+{
+  imgview::FramelessWindow window;
+  window.resize(400, 300);
+  window.show();
+  window.move(120, 80);
+
+  SECTION("the right edge follows the mouse")
+  {
+    const QSize before = window.size();
+    drag(&window, QPoint(399, 150), QPoint(60, 0));
+
+    REQUIRE(window.width() == before.width() + 60);
+    REQUIRE(window.height() == before.height());
+    REQUIRE(window.pos() == QPoint(120, 80));
+  }
+
+  SECTION("the left edge moves the window as it shrinks it")
+  {
+    const QSize before = window.size();
+    drag(&window, QPoint(1, 150), QPoint(60, 0));
+
+    REQUIRE(window.width() == before.width() - 60);
+    REQUIRE(window.pos().x() == 120 + 60);
+    // The opposite edge stayed where it was.
+    REQUIRE(window.geometry().right() == 120 + before.width() - 1);
+  }
+
+  SECTION("the bottom right corner changes both")
+  {
+    const QSize before = window.size();
+    drag(&window, QPoint(399, 299), QPoint(20, 40));
+
+    REQUIRE(window.size() == before + QSize(20, 40));
+  }
+
+  SECTION("the window is not dragged below its minimum size")
+  {
+    drag(&window, QPoint(399, 299), QPoint(-2000, -2000));
+
+    REQUIRE(window.width() == window.minimumWidth());
+    REQUIRE(window.height() == window.minimumHeight());
+  }
+}
+
+TEST_CASE("The cursor says what the edges do", "[gui]")
+{
+  imgview::FramelessWindow window;
+  window.resize(400, 300);
+  window.show();
+
+  sendMouse(&window, QEvent::MouseMove, QPoint(1, 150));
+  REQUIRE(window.cursor().shape() == Qt::SizeHorCursor);
+
+  sendMouse(&window, QEvent::MouseMove, QPoint(1, 1));
+  REQUIRE(window.cursor().shape() == Qt::SizeFDiagCursor);
+
+  sendMouse(&window, QEvent::MouseMove, QPoint(399, 1));
+  REQUIRE(window.cursor().shape() == Qt::SizeBDiagCursor);
+
+  sendMouse(&window, QEvent::MouseMove, QPoint(200, 1));
+  REQUIRE(window.cursor().shape() == Qt::SizeVerCursor);
+
+  sendMouse(&window, QEvent::MouseMove, QPoint(200, 150));
+  REQUIRE(window.cursor().shape() == Qt::ArrowCursor);
+}
+
+TEST_CASE("A double click toggles full screen", "[gui]")
+{
+  imgview::FramelessWindow window;
+  window.resize(400, 300);
+  window.show();
+  REQUIRE_FALSE(window.isFullScreen());
+
+  sendMouse(&window, QEvent::MouseButtonDblClick, QPoint(200, 150));
+  REQUIRE(window.isFullScreen());
+
+  sendMouse(&window, QEvent::MouseButtonDblClick, QPoint(200, 150));
+  REQUIRE_FALSE(window.isFullScreen());
+}
+
+TEST_CASE("A full screen window is neither moved nor resized", "[gui]")
+{
+  imgview::FramelessWindow window;
+  window.resize(400, 300);
+  window.show();
+  window.showFullScreen();
+
+  const QRect before = window.geometry();
+  drag(&window, QPoint(200, 150), QPoint(40, 25));
+  REQUIRE(window.geometry() == before);
+
+  drag(&window, QPoint(399, 299), QPoint(-40, -25));
+  REQUIRE(window.geometry() == before);
+}
+
+TEST_CASE("The viewer shows the playlist and steps through it", "[gui]")
+{
+  QTemporaryDir directory;
+  REQUIRE(directory.isValid());
+  REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
+  REQUIRE(writePng(directory.filePath(QStringLiteral("b.png")), Qt::green));
+
+  const imgview::ImageScan scan = imgview::collectImages({ directory.path() }, true);
+  REQUIRE(scan.files.size() == 2);
+
+  imgview::MainWindow window(imgview::Playlist(scan.files, imgview::PlaylistOrder::Sequential), 0);
+  window.show();
+
+  auto *view = window.findChild<imgview::ImageView *>();
+  REQUIRE(view != nullptr);
+  // The window drags and resizes itself, so the view must not swallow the mouse.
+  REQUIRE(view->testAttribute(Qt::WA_TransparentForMouseEvents));
+
+  auto *status = window.findChild<QLabel *>(QStringLiteral("status"));
+  REQUIRE(status != nullptr);
+  REQUIRE(status->text().contains(QStringLiteral("a.png")));
+  REQUIRE(status->text().contains(QStringLiteral("(1/2)")));
+  REQUIRE(window.windowTitle().contains(QStringLiteral("a.png")));
+
+  SECTION("the next image is one key (or one wheel click) away")
+  {
+    sendKey(&window, Qt::Key_Right);
+
+    REQUIRE(view->path() == scan.files.at(1));
+    REQUIRE(window.windowTitle().contains(QStringLiteral("b.png")));
+    REQUIRE(window.windowTitle().contains(QStringLiteral("(2/2)")));
+  }
+
+  SECTION("and the one before it is as well")
+  {
+    sendKey(&window, Qt::Key_Right);
+    sendKey(&window, Qt::Key_Left);
+
+    REQUIRE(view->path() == scan.files.at(0));
+  }
+
+  SECTION("Escape closes a window that is not full screen")
+  {
+    sendKey(&window, Qt::Key_Escape);
+
+    REQUIRE_FALSE(window.isVisible());
+  }
+}
+
+TEST_CASE("A viewer without images says so instead of showing nothing", "[gui]")
+{
+  imgview::MainWindow window(imgview::Playlist({}, imgview::PlaylistOrder::Sequential), 0);
+  window.show();
+
+  // Nothing to step to, and nothing to crash on.
+  sendKey(&window, Qt::Key_Right);
+  sendKey(&window, Qt::Key_Left);
+  sendKey(&window, Qt::Key_R);
+
+  REQUIRE(window.windowTitle() == QStringLiteral("QtImageViewer"));
+}

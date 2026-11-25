@@ -121,7 +121,9 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_CXX_COMPILER": "g++",
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "QtImageViewer_ENABLE_SANITIZER_ADDRESS": "ON",
+                "QtImageViewer_ENABLE_SANITIZER_UNDEFINED": "ON"
             }
         },
         {
@@ -143,7 +145,9 @@
             "cacheVariables": {
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "QtImageViewer_ENABLE_SANITIZER_ADDRESS": "ON",
+                "QtImageViewer_ENABLE_SANITIZER_UNDEFINED": "ON"
             }
         },
         {

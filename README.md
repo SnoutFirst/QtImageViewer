@@ -19,8 +19,11 @@ QtImageViewer --random --slideshow --timeout 8 ~/Pictures/wallpapers photo.png
 - `--random` shuffles: every image is shown once before any image is shown
   again, and a new shuffle is drawn each time the whole list has been shown.
 - `--slideshow` advances by itself; `--timeout` says how often.
-- Keyboard and mouse wheel navigation, full screen, window title showing the
-  file name and position in the list (`photo.png (3/12)`).
+- A window without a frame — no title bar, no borders — that is moved by
+  dragging the image and resized by dragging near an edge or a corner.
+- Keyboard and mouse wheel navigation, full screen; the file name and position
+  in the list (`photo.png (3/12)`) appear in the corner for a couple of seconds
+  after each step, and in the window title for task bars and window lists.
 - Honours the EXIF orientation of camera images.
 - Builds against Qt 5.15 and Qt 6 from the same sources and the same
   `CMakeLists.txt`.
@@ -57,10 +60,20 @@ cmake -S . -B build-qt5 -DCMAKE_BUILD_TYPE=Release -DQTIMAGEVIEWER_QT_VERSION=5
 `CMakePresets.json` has ready made presets too (`cmake --list-presets`), for
 example `unixlike-gcc-debug` and `unixlike-gcc-qt5-debug`.
 
-The build treats warnings as errors and turns on the address and undefined
-behaviour sanitizers by default; both can be changed with the usual
-`-DQtImageViewer_*` options (`-DQtImageViewer_WARNINGS_AS_ERRORS=OFF`,
-`-DQtImageViewer_ENABLE_SANITIZER_ADDRESS=OFF`, ...).
+The build treats warnings as errors; that can be changed with
+`-DQtImageViewer_WARNINGS_AS_ERRORS=OFF`.
+
+The address and undefined behaviour sanitizers are **not** part of an ordinary
+build: an instrumented binary runs several times slower and keeps every freed
+allocation in its quarantine, so a viewer built that way climbs to hundreds of
+megabytes of resident memory that only looks like a leak. The `*-debug` presets
+and the CI Debug job switch them on, and so does
+
+```sh
+cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
+  -DQtImageViewer_ENABLE_SANITIZER_ADDRESS=ON \
+  -DQtImageViewer_ENABLE_SANITIZER_UNDEFINED=ON
+```
 
 ## Usage
 
@@ -87,6 +100,9 @@ from. With no arguments the program explains itself and exits.
 | `Right`, `Down`, `Space`, `Page Down`, `n` | Next image |
 | `Left`, `Up`, `Backspace`, `Page Up`, `p` | Previous image |
 | Mouse wheel up / down | Previous / next image |
+| Drag with the left button | Move the window |
+| Drag near an edge or a corner | Resize the window |
+| Double click | Toggle full screen |
 | `r` | Shuffle again: draw a new random order and show its first image |
 | `f`, `F11` | Toggle full screen |
 | `Esc` | Leave full screen, or quit when not in full screen |
@@ -118,6 +134,14 @@ way at the other end of a cycle.
 - Files and directories whose name starts with a dot are ignored when scanning a
   directory (as are entries the platform marks as hidden), and symlinks to
   directories are followed once, not in circles.
+- The window has no title bar, so `Esc` and `q` are how it is closed (a window
+  manager's own shortcut, such as `Alt+F4`, works as well). Where the platform
+  can do it the *window system* performs the move and the resize
+  (`QWindow::startSystemMove()` / `startSystemResize()`), which is what keeps
+  snapping and tiling working; on a platform that cannot — and on an X server
+  with no window manager at all — the widget moves and resizes itself.
+- The overlay with the file name is a label floating over the image rather than
+  part of the layout, so it does not take a strip of the window for itself.
 - The Qt platform plugin needs a display. On a headless machine, use
   `QT_QPA_PLATFORM=offscreen` for `--help`, `--version` or the test suite.
 
@@ -130,9 +154,13 @@ cd build && QT_QPA_PLATFORM=offscreen ctest --output-on-failure
 
 The tests cover the playlist rules (the "every image once" guarantee, both
 directions, across cycle boundaries), the command line expansion (recursion,
-duplicate suppression, unreadable paths), and the command line interface
-itself. Building and testing against both Qt majors is what the CI matrix
-does.
+duplicate suppression, unreadable paths), the command line interface itself,
+and the widgets: that the window really is frameless, that dragging moves it and
+that dragging near an edge resizes it, on `QT_QPA_PLATFORM=offscreen` and
+without a window manager (the tests then exercise the widget's own move and
+resize, which is also what happens on a platform without
+`startSystemMove()`). Building and testing against both Qt majors is what the
+CI matrix does.
 
 ## License
 

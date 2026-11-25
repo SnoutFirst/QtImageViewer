@@ -4,24 +4,49 @@
 
 #include <QFileInfo>
 #include <QKeyEvent>
+#include <QLabel>
+#include <QResizeEvent>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include <utility>
 
 namespace imgview {
+namespace {
+
+//! How long the file name overlay stays on screen, in milliseconds.
+constexpr int kStatusTimeout = 2500;
+//! Distance between the overlay and the bottom left corner, in pixels.
+constexpr int kStatusMargin = 12;
+
+}// namespace
 
 MainWindow::MainWindow(Playlist playlist, int slideshowInterval, QWidget *parent)
-  : QWidget(parent), m_playlist(std::move(playlist)), m_view(new ImageView(this)), m_slideshow(this)
+  : FramelessWindow(parent), m_playlist(std::move(playlist)), m_view(new ImageView(this)), m_status(new QLabel(this)),
+    m_slideshow(this)
 {
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->setSpacing(0);
   layout->addWidget(m_view);
 
-  // The window owns the keyboard; the view only paints.
+  // The window owns the mouse (it drags and resizes itself) and the keyboard;
+  // the view only paints. A window this small looks odd, so ask for a bit more.
   m_view->setFocusPolicy(Qt::NoFocus);
+  m_view->setAttribute(Qt::WA_TransparentForMouseEvents, true);
   setFocusPolicy(Qt::StrongFocus);
+  setMinimumSize(200, 150);
+
+  // The overlay is a child of the window rather than part of the layout: it
+  // floats over the image instead of taking a strip of the window for itself.
+  m_status->setObjectName(QStringLiteral("status"));
+  m_status->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+  m_status->setStyleSheet(
+    QStringLiteral("QLabel { color: white; background: rgba(0, 0, 0, 170); padding: 4px 8px; border-radius: 4px; }"));
+  m_status->hide();
+  m_statusTimeout.setSingleShot(true);
+  m_statusTimeout.setInterval(kStatusTimeout);
+  connect(&m_statusTimeout, &QTimer::timeout, m_status, &QWidget::hide);
 
   resize(m_view->sizeHint());
 
@@ -93,6 +118,12 @@ void MainWindow::wheelEvent(QWheelEvent *event)
   event->accept();
 }
 
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+  FramelessWindow::resizeEvent(event);
+  placeStatus();
+}
+
 void MainWindow::showNext(bool automatic)
 {
   if (m_playlist.isEmpty()) { return; }
@@ -125,20 +156,11 @@ void MainWindow::restartCycle()
   showCurrent();
 }
 
-void MainWindow::toggleFullScreen()
-{
-  if (isFullScreen()) {
-    showNormal();
-  } else {
-    showFullScreen();
-  }
-}
-
 void MainWindow::showCurrent()
 {
   if (m_playlist.isEmpty()) {
     m_view->showMessage(QStringLiteral("No images to show"));
-    setWindowTitle(QStringLiteral("QtImageViewer"));
+    setStatus(QString());
     return;
   }
 
@@ -148,8 +170,35 @@ void MainWindow::showCurrent()
   // keeps going rather than stalling on it.
   m_view->load(path);
 
-  setWindowTitle(
-    QStringLiteral("%1 (%2/%3)").arg(QFileInfo(path).fileName()).arg(m_playlist.position()).arg(m_playlist.size()));
+  setStatus(QStringLiteral("%1 (%2/%3)")
+              .arg(QFileInfo(path).fileName())
+              .arg(m_playlist.position())
+              .arg(m_playlist.size()));
+}
+
+void MainWindow::setStatus(const QString &text)
+{
+  if (text.isEmpty()) {
+    m_statusTimeout.stop();
+    m_status->hide();
+    setWindowTitle(QStringLiteral("QtImageViewer"));
+    return;
+  }
+
+  setWindowTitle(text);
+  m_status->setText(text);
+  m_status->adjustSize();
+  placeStatus();
+  m_status->raise();
+  m_status->show();
+  m_statusTimeout.start();
+}
+
+void MainWindow::placeStatus()
+{
+  if (m_status == nullptr) { return; }
+
+  m_status->move(kStatusMargin, height() - m_status->height() - kStatusMargin);
 }
 
 }// namespace imgview

@@ -1,4 +1,3 @@
-include(cmake/LibFuzzer.cmake)
 include(CMakeDependentOption)
 include(CheckCXXCompilerFlag)
 
@@ -82,9 +81,14 @@ macro(QtImageViewer_setup_options)
   else()
     option(QtImageViewer_ENABLE_IPO "Enable IPO/LTO" ON)
     option(QtImageViewer_WARNINGS_AS_ERRORS "Treat Warnings As Errors" ON)
-    option(QtImageViewer_ENABLE_SANITIZER_ADDRESS "Enable address sanitizer" ${SUPPORTS_ASAN})
+    # The sanitizers are for finding bugs, not for the binary the project is
+    # used through: an instrumented build runs several times slower and holds on
+    # to every allocation it frees (ASan's quarantine), which reads as a memory
+    # leak in any process viewer. The *-debug presets and the CI Debug jobs turn
+    # them on; a plain `cmake -S . -B build` stays a normal build.
+    option(QtImageViewer_ENABLE_SANITIZER_ADDRESS "Enable address sanitizer" OFF)
     option(QtImageViewer_ENABLE_SANITIZER_LEAK "Enable leak sanitizer" OFF)
-    option(QtImageViewer_ENABLE_SANITIZER_UNDEFINED "Enable undefined sanitizer" ${SUPPORTS_UBSAN})
+    option(QtImageViewer_ENABLE_SANITIZER_UNDEFINED "Enable undefined sanitizer" OFF)
     option(QtImageViewer_ENABLE_SANITIZER_THREAD "Enable thread sanitizer" OFF)
     option(QtImageViewer_ENABLE_SANITIZER_MEMORY "Enable memory sanitizer" OFF)
     option(QtImageViewer_ENABLE_UNITY_BUILD "Enable unity builds" OFF)
@@ -118,16 +122,6 @@ macro(QtImageViewer_setup_options)
       QtImageViewer_ENABLE_PCH
       QtImageViewer_ENABLE_CACHE)
   endif()
-
-  QtImageViewer_check_libfuzzer_support(LIBFUZZER_SUPPORTED)
-  if(LIBFUZZER_SUPPORTED AND (QtImageViewer_ENABLE_SANITIZER_ADDRESS OR QtImageViewer_ENABLE_SANITIZER_THREAD OR QtImageViewer_ENABLE_SANITIZER_UNDEFINED))
-    set(DEFAULT_FUZZER ON)
-  else()
-    set(DEFAULT_FUZZER OFF)
-  endif()
-
-  option(QtImageViewer_BUILD_FUZZ_TESTS "Enable fuzz testing executable" ${DEFAULT_FUZZER})
-
 endmacro()
 
 macro(QtImageViewer_global_options)

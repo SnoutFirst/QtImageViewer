@@ -24,6 +24,7 @@ jobs:
             cc: gcc
             cxx: g++
             build_type: Debug
+            sanitizers: ON
           - name: linux gcc Qt 6 Release
             os: ubuntu-24.04
             qt: 6
@@ -99,6 +100,12 @@ jobs:
                 -DGIT_SHA=${GITHUB_SHA})
           if [ -n "${{ matrix.cc }}" ]; then
             args+=(-DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }})
+          fi
+          # The sanitizers are off by default so that the program is a normal
+          # build; the Debug job is where they are wanted.
+          if [ "${{ matrix.sanitizers }}" = "ON" ]; then
+            args+=(-DQtImageViewer_ENABLE_SANITIZER_ADDRESS=ON
+                   -DQtImageViewer_ENABLE_SANITIZER_UNDEFINED=ON)
           fi
           cmake -S . -B build "${args[@]}"
 

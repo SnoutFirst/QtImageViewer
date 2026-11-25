@@ -72,6 +72,45 @@ catch_discover_tests(
   OUTPUT_SUFFIX
   .xml)
 
+# The widgets need a QApplication, so they get their own main() and their own
+# executable. QT_QPA_PLATFORM=offscreen is set for every case: the window does not
+# have to be seen to be tested, and a build machine has no display.
+add_executable(tests_gui gui_main.cpp gui_tests.cpp)
+target_link_libraries(
+  tests_gui
+  PRIVATE QtImageViewer::QtImageViewer_options
+          QtImageViewer::QtImageViewer_warnings
+          QtImageViewer::Core
+          QtImageViewer::Widgets
+          Catch2::Catch2)
+
+QtImageViewer_apply_static_analysers(tests_gui)
+QtImageViewer_configure_linker(tests_gui)
+
+if(WIN32 AND BUILD_SHARED_LIBS)
+  add_custom_command(
+    TARGET tests_gui
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:tests_gui> $<TARGET_FILE_DIR:tests_gui>
+    COMMAND_EXPAND_LISTS)
+endif()
+
+catch_discover_tests(
+  tests_gui
+  TEST_PREFIX
+  "gui."
+  REPORTER
+  XML
+  OUTPUT_DIR
+  .
+  OUTPUT_PREFIX
+  "gui."
+  OUTPUT_SUFFIX
+  .xml
+  PROPERTIES
+  ENVIRONMENT
+  "QT_QPA_PLATFORM=offscreen")
+
 # CMake-script regression tests for cmake/Sanitizers.cmake (issue #141).
 add_test(
   NAME cmake.sanitizers.apple_excludes_leak
