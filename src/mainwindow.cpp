@@ -2,14 +2,19 @@
 
 #include "imageview.h"
 
+#include <QAction>
+#include <QContextMenuEvent>
 #include <QFileInfo>
 #include <QKeyEvent>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLocale>
+#include <QMenu>
 #include <QResizeEvent>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
+#include <optional>
 #include <utility>
 
 namespace imgview {
@@ -20,9 +25,9 @@ constexpr int kStatusMargin = 12;
 
 }// namespace
 
-MainWindow::MainWindow(Playlist playlist, int slideshowInterval, bool verbose, QWidget *parent)
+MainWindow::MainWindow(Playlist playlist, Options options, QWidget *parent)
   : FramelessWindow(parent), m_playlist(std::move(playlist)), m_view(new ImageView(this)),
-    m_status(new QLabel(this)), m_slideshow(this), m_verbose(verbose)
+    m_status(new QLabel(this)), m_menu(new QMenu(this)), m_slideshow(this), m_verbose(options.verbose)
 {
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
@@ -44,61 +49,87 @@ MainWindow::MainWindow(Playlist playlist, int slideshowInterval, bool verbose, Q
   m_status->setStyleSheet(
     QStringLiteral("QLabel { color: white; background: rgba(0, 0, 0, 170); padding: 4px 8px; border-radius: 4px; }"));
 
+  buildMenu();
+
   resize(m_view->sizeHint());
 
   showCurrent();
 
-  if (slideshowInterval > 0) {
-    m_slideshow.setInterval(slideshowInterval);
-    connect(&m_slideshow, &QTimer::timeout, this, [this] { showNext(true); });
-    m_slideshow.start();
+  m_slideshow.setInterval(options.slideshowInterval > 0 ? options.slideshowInterval : kDefaultSlideshowInterval);
+  connect(&m_slideshow, &QTimer::timeout, this, [this] { showNext(true); });
+  if (options.startSlideshow) { m_slideshow.start(); }
+}
+
+bool MainWindow::slideshowRunning() const { return m_slideshow.isActive(); }
+
+void MainWindow::buildMenu()
+{
+  for (const Command command : commands()) {
+    QAction *action = m_menu->addAction(commandDescription(command));
+    // The menu draws this itself, in its shortcut column -- and while the menu
+    // is open it works, which is no bad thing.
+    action->setShortcut(QKeySequence(primaryKey(command)));
+    connect(action, &QAction::triggered, this, [this, command] { perform(command); });
+  }
+}
+
+void MainWindow::perform(Command command)
+{
+  switch (command) {
+  case Command::NextImage:
+    showNext(false);
+    break;
+  case Command::PreviousImage:
+    showPrevious();
+    break;
+  case Command::ToggleSlideshow:
+    toggleSlideshow();
+    break;
+  case Command::ToggleFullScreen:
+    toggleFullScreen();
+    break;
+  case Command::ToggleVerbose:
+    toggleVerbose();
+    break;
+  case Command::RestartCycle:
+    restartCycle();
+    break;
+  case Command::ZoomIn:
+    m_view->zoomIn();
+    refreshStatus();
+    break;
+  case Command::ZoomOut:
+    m_view->zoomOut();
+    refreshStatus();
+    break;
+  case Command::Quit:
+    close();
+    break;
   }
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
-  switch (event->key()) {
-  case Qt::Key_Right:
-  case Qt::Key_Down:
-  case Qt::Key_Space:
-  case Qt::Key_PageDown:
-  case Qt::Key_N:
-    showNext(false);
-    break;
-  case Qt::Key_Left:
-  case Qt::Key_Up:
-  case Qt::Key_Backspace:
-  case Qt::Key_PageUp:
-  case Qt::Key_P:
-    showPrevious();
-    break;
-  case Qt::Key_R:
-    restartCycle();
-    break;
-  case Qt::Key_V:
-    toggleVerbose();
-    break;
-  case Qt::Key_F:
-  case Qt::Key_F11:
-    toggleFullScreen();
-    break;
-  case Qt::Key_Q:
-    close();
-    break;
-  case Qt::Key_Escape:
-    // Escape leaves full screen first, and only quits when there is no full
-    // screen to leave.
+  // Escape leaves full screen first, and only quits when there is no full
+  // screen to leave: it is the one key that does something different depending
+  // on where the window is, which is why it is not in the table.
+  if (event->key() == Qt::Key_Escape) {
     if (isFullScreen()) {
       showNormal();
     } else {
       close();
     }
-    break;
-  default:
-    QWidget::keyPressEvent(event);
+    event->accept();
     return;
   }
-  event->accept();
+
+  if (const std::optional<Command> command = commandForKey(event->key())) {
+    perform(*command);
+    event->accept();
+    return;
+  }
+
+  QWidget::keyPressEvent(event);
 }
 
 void MainWindow::wheelEvent(QWheelEvent *event)
@@ -109,11 +140,26 @@ void MainWindow::wheelEvent(QWheelEvent *event)
     return;
   }
 
-  if (delta > 0) {
-    showPrevious();
+  // The wheel zooms; with Control held it steps through the playlist instead,
+  // which is where the wheel used to be and what a touchpad still expects from
+  // it. Either way the step is in the direction the wheel was rolled.
+  if (event->modifiers().testFlag(Qt::ControlModifier)) {
+    if (delta > 0) {
+      showPrevious();
+    } else {
+      showNext(false);
+    }
+  } else if (delta > 0) {
+    perform(Command::ZoomIn);
   } else {
-    showNext(false);
+    perform(Command::ZoomOut);
   }
+  event->accept();
+}
+
+void MainWindow::contextMenuEvent(QContextMenuEvent *event)
+{
+  m_menu->popup(event->globalPos());
   event->accept();
 }
 
@@ -121,6 +167,15 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
   FramelessWindow::resizeEvent(event);
   placeStatus();
+}
+
+void MainWindow::toggleSlideshow()
+{
+  if (m_slideshow.isActive()) {
+    m_slideshow.stop();
+  } else {
+    m_slideshow.start();
+  }
 }
 
 void MainWindow::showNext(bool automatic)
@@ -198,11 +253,14 @@ void MainWindow::refreshStatus()
   }
 
   // Verbose mode is the place for the details that would be in the way of the
-  // picture: how big it is, and how big the file is.
+  // picture: how big it is, how far it is zoomed, and how big the file is.
   QString overlay = text;
   const QSize imageSize = m_view->imageSize();
   if (imageSize.isValid()) {
     overlay += QStringLiteral("  %1x%2").arg(imageSize.width()).arg(imageSize.height());
+  }
+  if (m_view->zoom() != 1.0) {
+    overlay += QStringLiteral("  %1%").arg(qRound(m_view->zoom() * 100.0));
   }
   if (file.size() > 0) {
     overlay += QStringLiteral("  %1").arg(QLocale().formattedDataSize(file.size(), 1));

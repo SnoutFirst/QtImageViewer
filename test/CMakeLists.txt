@@ -37,9 +37,10 @@ include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
 # ---- Tests ----
 
 # The playlist and image-scanning code is the part with the interesting rules
-# ("every image once before repeating", recursion, duplicate suppression), so it
-# is the part that is unit tested.
-add_executable(tests main.cpp playlist_tests.cpp imagefiles_tests.cpp)
+# ("every image once before repeating", recursion, duplicate suppression), and the
+# key map is the part --help and the context menu both read, so both are unit
+# tested.
+add_executable(tests main.cpp playlist_tests.cpp imagefiles_tests.cpp keymap_tests.cpp)
 target_link_libraries(
   tests
   PRIVATE QtImageViewer::QtImageViewer_options
@@ -143,6 +144,16 @@ if(NOT WIN32)
   add_test(NAME cli.explains_itself COMMAND QtImageViewer --help)
   set_tests_properties(cli.explains_itself PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                                                         PASS_REGULAR_EXPRESSION "--no-recurse")
+
+  # --help has to explain the keys as well as the options, from the one table the
+  # window handles keys from.
+  add_test(NAME cli.help_lists_the_keys COMMAND QtImageViewer --help)
+  set_tests_properties(cli.help_lists_the_keys PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                                                        PASS_REGULAR_EXPRESSION "Keyboard shortcuts")
+
+  add_test(NAME cli.help_describes_the_slideshow_key COMMAND QtImageViewer --help)
+  set_tests_properties(cli.help_describes_the_slideshow_key PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                                                             PASS_REGULAR_EXPRESSION "Start or stop the slideshow")
 
   # -v is the short form of --verbose, so it must not print the version and stop:
   # with no images on the command line it is still a usage error.

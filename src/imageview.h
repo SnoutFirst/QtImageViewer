@@ -27,6 +27,13 @@ public:
   //! Throws the image away and shows \a message instead.
   void showMessage(const QString &message);
 
+  //! One zoom step in; 1.0 is "as large as the window fits", which is where every image starts.
+  void zoomIn();
+  //! One zoom step out.
+  void zoomOut();
+  //! The current zoom, as a multiple of the fitted size.
+  [[nodiscard]] qreal zoom() const;
+
   [[nodiscard]] const QString &path() const;
   //! Size of the decoded image; empty when there is nothing (decodable) loaded.
   [[nodiscard]] QSize imageSize() const;
@@ -39,6 +46,7 @@ protected:
 
 private:
   void rescale();
+  void setZoom(qreal zoom);
   void paintMessage(QPainter *painter) const;
 
   QImage m_image;
@@ -46,6 +54,8 @@ private:
   QSize m_size;
   QString m_path;
   QString m_message;
+  //! Multiple of the fitted size; 1.0 until the user zooms.
+  qreal m_zoom = 1.0;
   bool m_scaledDirty = true;
 };
 

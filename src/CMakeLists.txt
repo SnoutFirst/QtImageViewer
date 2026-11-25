@@ -14,7 +14,7 @@ else()
 endif()
 
 # ---- The part that is not a widget, shared with the unit tests --------------
-add_library(QtImageViewerCore OBJECT playlist.cpp playlist.h imagefiles.cpp imagefiles.h)
+add_library(QtImageViewerCore OBJECT playlist.cpp playlist.h imagefiles.cpp imagefiles.h keymap.cpp keymap.h)
 add_library(QtImageViewer::Core ALIAS QtImageViewerCore)
 
 target_include_directories(QtImageViewerCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

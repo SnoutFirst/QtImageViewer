@@ -18,22 +18,29 @@ QtImageViewer --random --slideshow --timeout 8 ~/Pictures/wallpapers photo.png
   with `--no-recurse`. Several arguments simply add up.
 - `--random` shuffles: every image is shown once before any image is shown
   again, and a new shuffle is drawn each time the whole list has been shown.
-- `--slideshow` advances by itself; `--timeout` says how often.
+- `--slideshow` advances by itself; `--timeout` says how often. `Return`, the
+  keypad's `Enter`, the `s` key or the context menu start and stop it while the
+  program runs, at the same interval.
 - A window without a frame — no title bar, no borders — that is moved by
   dragging the image and resized by dragging near an edge or a corner.
-- Keyboard and mouse wheel navigation, full screen. The file name and position
+- Keyboard navigation, a right-click menu with the same commands (each showing
+  its key), the mouse wheel to zoom, full screen. The file name and position
   in the list (`photo.png (3/12)`) go in the window title, for task bars and
   window lists; `--verbose` (or the `v` key) also draws them — with the pixel
-  size and the file size — over the bottom left corner of the image.
+  size, the zoom and the file size — over the bottom left corner of the image.
 - The image is scaled to fill the window, up as well as down (like `fbi -a`),
   keeping its aspect ratio, so a small picture is not lost in a large window.
+  `+` and `-` (or the wheel) zoom in and out from there, up to ten times the
+  fitted size and down to a tenth of it; every image starts at the fit again.
 - Honours the EXIF orientation of camera images.
 - Builds against Qt 5.15 and Qt 6 from the same sources and the same
   `CMakeLists.txt`.
 
-Not supported, on purpose: WebAssembly (there are no QWidgets there), video,
-thumbnails, image editing, and every other feature you would expect from
-`feh`. It is a viewer.
+Not supported, on purpose: WebAssembly — not because Qt Widgets cannot run in a
+browser (they can), but because a viewer that wants a screen of its own and a
+local tree of pictures has nothing to do in a browser tab — video, thumbnails,
+image editing, and every other feature you would expect from `feh`. It is a
+viewer.
 
 ## Requirements
 
@@ -91,10 +98,10 @@ from. With no arguments the program explains itself and exits.
 | --- | --- |
 | `-r`, `--random` | Show the images in a shuffled order instead of the order given. |
 | `-s`, `--slideshow` | Advance to the next image automatically. |
-| `-t`, `--timeout <seconds>` | Seconds each image is shown in a slideshow. Default: 5. Only used together with `--slideshow`; fractions are allowed (`-t 0.5`). |
+| `-t`, `--timeout <seconds>` | Seconds each image is shown in a slideshow. Default: 5. Also the interval of a slideshow started later with a key or the context menu; fractions are allowed (`-t 0.5`). |
 | `--no-recurse` | Do not look inside the subdirectories of a directory argument. |
 | `-v`, `--verbose` | Draw the file name, the position in the list, the pixel size and the file size over the bottom left corner of the image. The `v` key toggles this at any time. |
-| `-h`, `--help` | Usage summary. |
+| `-h`, `--help` | Usage summary, including the keys. |
 | `-V`, `--version` | Version of the program. |
 
 ### Controls
@@ -103,15 +110,24 @@ from. With no arguments the program explains itself and exits.
 | --- | --- |
 | `Right`, `Down`, `Space`, `Page Down`, `n` | Next image |
 | `Left`, `Up`, `Backspace`, `Page Up`, `p` | Previous image |
-| Mouse wheel up / down | Previous / next image |
+| `Return`, `keypad Enter`, `s` | Start or stop the slideshow |
+| `+`, `=` | Zoom in |
+| `-`, `_` | Zoom out |
+| Mouse wheel up / down | Zoom in / out |
+| `Ctrl` + mouse wheel up / down | Previous / next image |
+| Right click | The context menu: every command below, with the key that runs it |
 | Drag with the left button | Move the window |
 | Drag near an edge or a corner | Resize the window |
 | Double click | Toggle full screen |
-| `r` | Shuffle again: draw a new random order and show its first image |
+| `r` | Start the list over: draw a new random order and show its first image (with `--random`; otherwise back to the first file) |
 | `v` | Toggle the file name and image details over the image |
 | `f`, `F11` | Toggle full screen |
 | `Esc` | Leave full screen, or quit when not in full screen |
 | `q` | Quit |
+
+`--help` prints the same list, and the right-click menu is built from the same
+table (`src/keymap.cpp`), so a key cannot be documented in one place and handled
+in another.
 
 A manual step during a slideshow restarts the countdown, so the image you just
 stepped onto gets the whole interval as well.
@@ -133,7 +149,9 @@ way at the other end of a cycle.
   can actually read.
 - Images are scaled to fill the window, up as well as down, always keeping their
   aspect ratio — the same thing `fbi -a` does. The borders left by the aspect
-  ratio are black.
+  ratio are black. Zooming multiplies that fitted size, so a zoomed picture is
+  cut off by the window rather than squeezed into it, and a scaled copy is never
+  given more than 64 megapixels to work with, however far it is zoomed.
 - Images are decoded at full resolution — there is no downscaled decoding for
   huge files.
 - A file reachable through more than one argument is only shown once.
@@ -183,7 +201,9 @@ cd build && QT_QPA_PLATFORM=offscreen ctest --output-on-failure
 
 The tests cover the playlist rules (the "every image once" guarantee, both
 directions, across cycle boundaries), the command line expansion (recursion,
-duplicate suppression, unreadable paths), the command line interface itself,
+duplicate suppression, unreadable paths), the key map (every command has a key,
+no key is claimed twice, and the menu's key is the key that works), the command
+line interface itself (including that `--help` lists the keys),
 and the widgets: that the window really is frameless, that dragging moves it and
 that dragging near an edge resizes it, on `QT_QPA_PLATFORM=offscreen` and
 without a window manager (the tests then exercise the widget's own move and
