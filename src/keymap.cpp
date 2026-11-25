@@ -107,9 +107,16 @@ QString keysFor(Command command)
   return names.join(QStringLiteral(", "));
 }
 
+/*
+ * MSVC's iterator over a std::array is a class, not the pointer libstdc++ uses,
+ * so "const auto *const" -- which is what clang-tidy asks for on libstdc++ --
+ * does not compile there; the NOLINTs below are for that difference, not for
+ * laziness.
+ */
 int primaryKey(Command command)
 {
-  const auto *const binding = std::find_if(
+  // NOLINTNEXTLINE(readability-qualified-auto)
+  const auto binding = std::find_if(
     kBindings.begin(), kBindings.end(), [command](const KeyBinding &candidate) { return candidate.command == command; });
 
   // Unreachable: every command in the enum has a binding in the table above.
@@ -118,7 +125,8 @@ int primaryKey(Command command)
 
 std::optional<Command> commandForKey(int key)
 {
-  const auto *const binding = std::find_if(
+  // NOLINTNEXTLINE(readability-qualified-auto)
+  const auto binding = std::find_if(
     kBindings.begin(), kBindings.end(), [key](const KeyBinding &candidate) { return candidate.key == key; });
 
   if (binding == kBindings.end()) { return std::nullopt; }
