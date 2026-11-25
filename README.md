@@ -23,8 +23,10 @@ QtImageViewer --random --slideshow --timeout 8 ~/Pictures/wallpapers photo.png
   dragging the image and resized by dragging near an edge or a corner.
 - Keyboard and mouse wheel navigation, full screen. The file name and position
   in the list (`photo.png (3/12)`) go in the window title, for task bars and
-  window lists; `--verbose` also draws them — with the pixel size and the file
-  size — over the bottom left corner of the image.
+  window lists; `--verbose` (or the `v` key) also draws them — with the pixel
+  size and the file size — over the bottom left corner of the image.
+- The image is scaled to fill the window, up as well as down (like `fbi -a`),
+  keeping its aspect ratio, so a small picture is not lost in a large window.
 - Honours the EXIF orientation of camera images.
 - Builds against Qt 5.15 and Qt 6 from the same sources and the same
   `CMakeLists.txt`.
@@ -91,7 +93,7 @@ from. With no arguments the program explains itself and exits.
 | `-s`, `--slideshow` | Advance to the next image automatically. |
 | `-t`, `--timeout <seconds>` | Seconds each image is shown in a slideshow. Default: 5. Only used together with `--slideshow`; fractions are allowed (`-t 0.5`). |
 | `--no-recurse` | Do not look inside the subdirectories of a directory argument. |
-| `-v`, `--verbose` | Draw the file name, the position in the list, the pixel size and the file size over the bottom left corner of the image. |
+| `-v`, `--verbose` | Draw the file name, the position in the list, the pixel size and the file size over the bottom left corner of the image. The `v` key toggles this at any time. |
 | `-h`, `--help` | Usage summary. |
 | `-V`, `--version` | Version of the program. |
 
@@ -106,6 +108,7 @@ from. With no arguments the program explains itself and exits.
 | Drag near an edge or a corner | Resize the window |
 | Double click | Toggle full screen |
 | `r` | Shuffle again: draw a new random order and show its first image |
+| `v` | Toggle the file name and image details over the image |
 | `f`, `F11` | Toggle full screen |
 | `Esc` | Leave full screen, or quit when not in full screen |
 | `q` | Quit |
@@ -128,8 +131,9 @@ way at the other end of a cycle.
   is not an image; if it cannot be decoded, the viewer says so and you can
   move on. The contents of a *directory* are filtered by the image formats Qt
   can actually read.
-- Images are scaled down to fit the window, and never scaled up beyond their
-  own size.
+- Images are scaled to fill the window, up as well as down, always keeping their
+  aspect ratio — the same thing `fbi -a` does. The borders left by the aspect
+  ratio are black.
 - Images are decoded at full resolution — there is no downscaled decoding for
   huge files.
 - A file reachable through more than one argument is only shown once.
@@ -142,9 +146,10 @@ way at the other end of a cycle.
   (`QWindow::startSystemMove()` / `startSystemResize()`), which is what keeps
   snapping and tiling working; on a platform that cannot — and on an X server
   with no window manager at all — the widget moves and resizes itself.
-- The `--verbose` overlay is a label floating over the image rather than part
-  of the layout, so it does not take a strip of the window for itself. Without
-  `--verbose` nothing is drawn over the image at all.
+- The verbose overlay is a label floating over the image rather than part of
+  the layout, so it does not take a strip of the window for itself. It exists
+  whether or not `--verbose` was given — the `v` key just hides and shows it —
+  so nothing is drawn over the image while it is off.
 - The Qt platform plugin needs a display. On a headless machine, use
   `QT_QPA_PLATFORM=offscreen` for `--help`, `--version` or the test suite.
 

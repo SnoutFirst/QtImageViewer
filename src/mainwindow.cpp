@@ -22,7 +22,7 @@ constexpr int kStatusMargin = 12;
 
 MainWindow::MainWindow(Playlist playlist, int slideshowInterval, bool verbose, QWidget *parent)
   : FramelessWindow(parent), m_playlist(std::move(playlist)), m_view(new ImageView(this)),
-    m_status(verbose ? new QLabel(this) : nullptr), m_slideshow(this)
+    m_status(new QLabel(this)), m_slideshow(this), m_verbose(verbose)
 {
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
@@ -36,14 +36,13 @@ MainWindow::MainWindow(Playlist playlist, int slideshowInterval, bool verbose, Q
   setFocusPolicy(Qt::StrongFocus);
   setMinimumSize(200, 150);
 
-  if (m_status != nullptr) {
-    // The overlay is a child of the window rather than part of the layout: it
-    // floats over the image instead of taking a strip of the window for itself.
-    m_status->setObjectName(QStringLiteral("status"));
-    m_status->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-    m_status->setStyleSheet(
-      QStringLiteral("QLabel { color: white; background: rgba(0, 0, 0, 170); padding: 4px 8px; border-radius: 4px; }"));
-  }
+  // The overlay is a child of the window rather than part of the layout: it
+  // floats over the image instead of taking a strip of the window for itself.
+  // It exists from the start and is merely hidden, so "v" can bring it back.
+  m_status->setObjectName(QStringLiteral("status"));
+  m_status->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+  m_status->setStyleSheet(
+    QStringLiteral("QLabel { color: white; background: rgba(0, 0, 0, 170); padding: 4px 8px; border-radius: 4px; }"));
 
   resize(m_view->sizeHint());
 
@@ -75,6 +74,9 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     break;
   case Qt::Key_R:
     restartCycle();
+    break;
+  case Qt::Key_V:
+    toggleVerbose();
     break;
   case Qt::Key_F:
   case Qt::Key_F11:
@@ -157,52 +159,64 @@ void MainWindow::showCurrent()
 {
   if (m_playlist.isEmpty()) {
     m_view->showMessage(QStringLiteral("No images to show"));
-    setStatus(QString());
+    refreshStatus();
     return;
   }
 
-  const QString path = m_playlist.current();
-  const QFileInfo file(path);
-
   // A file that cannot be read is reported by the view itself; the slideshow
   // keeps going rather than stalling on it.
-  m_view->load(path);
-
-  QString text =
-    QStringLiteral("%1 (%2/%3)").arg(file.fileName()).arg(m_playlist.position()).arg(m_playlist.size());
-
-  if (m_status != nullptr) {
-    // Verbose mode is the place for the details that would be in the way of the
-    // picture: how big it is, and how big the file is.
-    const QSize imageSize = m_view->imageSize();
-    if (imageSize.isValid()) {
-      text += QStringLiteral("  %1x%2").arg(imageSize.width()).arg(imageSize.height());
-    }
-    if (file.size() > 0) {
-      text += QStringLiteral("  %1").arg(QLocale().formattedDataSize(file.size(), 1));
-    }
-  }
-
-  setStatus(text);
+  m_view->load(m_playlist.current());
+  refreshStatus();
 }
 
-void MainWindow::setStatus(const QString &text)
+void MainWindow::toggleVerbose()
 {
-  setWindowTitle(text.isEmpty() ? QStringLiteral("QtImageViewer") : text);
+  m_verbose = !m_verbose;
+  refreshStatus();
+}
 
-  if (m_status == nullptr) { return; }
+void MainWindow::refreshStatus()
+{
+  if (m_playlist.isEmpty()) {
+    setWindowTitle(QStringLiteral("QtImageViewer"));
+    m_status->clear();
+    m_status->hide();
+    return;
+  }
 
-  m_status->setText(text);
+  const QFileInfo file(m_playlist.current());
+  const QString text =
+    QStringLiteral("%1 (%2/%3)").arg(file.fileName()).arg(m_playlist.position()).arg(m_playlist.size());
+
+  // Task bars and window lists show the title, where the details would only be
+  // in the way; the overlay is the place for them.
+  setWindowTitle(text);
+
+  if (!m_verbose) {
+    m_status->hide();
+    return;
+  }
+
+  // Verbose mode is the place for the details that would be in the way of the
+  // picture: how big it is, and how big the file is.
+  QString overlay = text;
+  const QSize imageSize = m_view->imageSize();
+  if (imageSize.isValid()) {
+    overlay += QStringLiteral("  %1x%2").arg(imageSize.width()).arg(imageSize.height());
+  }
+  if (file.size() > 0) {
+    overlay += QStringLiteral("  %1").arg(QLocale().formattedDataSize(file.size(), 1));
+  }
+
+  m_status->setText(overlay);
   m_status->adjustSize();
   placeStatus();
   m_status->raise();
-  m_status->setVisible(!text.isEmpty());
+  m_status->show();
 }
 
 void MainWindow::placeStatus()
 {
-  if (m_status == nullptr) { return; }
-
   m_status->move(kStatusMargin, height() - m_status->height() - kStatusMargin);
 }
 

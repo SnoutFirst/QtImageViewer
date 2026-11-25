@@ -90,9 +90,11 @@ void ImageView::resizeEvent(QResizeEvent *event)
 }
 
 /*!
- * Renders the image at the widget's size in device pixels. Images smaller than
- * the widget are left at their own size: enlarging a small picture to fill a
- * maximised window only makes it blurry.
+ * Renders the image at the widget's size in device pixels, as large as it fits:
+ * the image is scaled up to fill the window as well as down, so a small picture
+ * cannot get lost in the middle of a maximised window (fbi's "-a", effectively).
+ * The aspect ratio is never touched, so the letterboxing that follows from it
+ * stays black.
  */
 void ImageView::rescale()
 {
@@ -104,10 +106,7 @@ void ImageView::rescale()
   const qreal ratio = devicePixelRatioF();
   const QSize available(qRound(static_cast<qreal>(width()) * ratio), qRound(static_cast<qreal>(height()) * ratio));
 
-  QSize size = m_image.size();
-  if (size.width() > available.width() || size.height() > available.height()) {
-    size = size.scaled(available, Qt::KeepAspectRatio);
-  }
+  const QSize size = m_image.size().scaled(available, Qt::KeepAspectRatio);
 
   m_scaled = QPixmap::fromImage(m_image.scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
   m_scaled.setDevicePixelRatio(ratio);

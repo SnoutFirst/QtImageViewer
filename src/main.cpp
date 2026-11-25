@@ -125,7 +125,8 @@ int main(int argc, char *argv[])
     QStringLiteral("seconds"),
     QString::number(kDefaultSlideshowSeconds));
   const QCommandLineOption verboseOption({ QStringLiteral("v"), QStringLiteral("verbose") },
-    QStringLiteral("Draw the file name, the position in the list and the image details over the image."));
+    QStringLiteral("Draw the file name, the position in the list and the image details over the image. "
+                   "The v key toggles this while the program is running."));
   // -v is taken by --verbose, which is the more useful of the two; the version
   // is on -V instead of the -v addVersionOption() would use.
   const QCommandLineOption versionOption({ QStringLiteral("V"), QStringLiteral("version") },

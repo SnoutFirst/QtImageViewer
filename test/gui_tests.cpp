@@ -8,6 +8,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <QColor>
 #include <QCoreApplication>
 #include <QImage>
 #include <QKeyEvent>
@@ -21,7 +22,7 @@ namespace {
 constexpr int kTestImageWidth = 48;
 constexpr int kTestImageHeight = 32;
 
-bool writePng(const QString &path, QRgb colour)
+bool writePng(const QString &path, const QColor &colour)
 {
   QImage image(kTestImageWidth, kTestImageHeight, QImage::Format_RGB32);
   image.fill(colour);
@@ -195,8 +196,10 @@ TEST_CASE("The viewer shows the playlist and steps through it", "[gui]")
   REQUIRE(view->testAttribute(Qt::WA_TransparentForMouseEvents));
 
   // The file name goes in the window title; nothing is drawn over the image
-  // unless verbose mode was asked for.
-  REQUIRE(window.findChild<QLabel *>(QStringLiteral("status")) == nullptr);
+  // unless verbose mode was asked for (the overlay exists, but is hidden).
+  const auto *status = window.findChild<QLabel *>(QStringLiteral("status"));
+  REQUIRE(status != nullptr);
+  REQUIRE_FALSE(status->isVisible());
   REQUIRE(window.windowTitle().contains(QStringLiteral("a.png")));
   REQUIRE(window.windowTitle().contains(QStringLiteral("(1/2)")));
 
@@ -266,4 +269,83 @@ TEST_CASE("Verbose mode draws the file name and the image details over the image
   REQUIRE(status->text().contains(QStringLiteral("b.png")));
   REQUIRE(status->text().contains(QStringLiteral("(2/2)")));
   REQUIRE(window.windowTitle().contains(QStringLiteral("b.png")));
+}
+
+TEST_CASE("The v key toggles the overlay while the window is open", "[gui]")
+{
+  const QTemporaryDir directory;
+  REQUIRE(directory.isValid());
+  REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
+
+  const imgview::ImageScan scan = imgview::collectImages({ directory.path() }, true);
+  REQUIRE(scan.files.size() == 1);
+
+  // Started without --verbose: the details are only in the title.
+  imgview::MainWindow window(imgview::Playlist(scan.files, imgview::PlaylistOrder::Sequential), 0, false);
+  window.show();
+
+  auto *status = window.findChild<QLabel *>(QStringLiteral("status"));
+  REQUIRE(status != nullptr);
+  REQUIRE_FALSE(status->isVisible());
+
+  SECTION("pressing v draws the details, a second time takes them away again")
+  {
+    sendKey(&window, Qt::Key_V);
+    REQUIRE(status->isVisible());
+    REQUIRE(status->text().contains(QStringLiteral("a.png")));
+    REQUIRE(status->text().contains(
+      QStringLiteral("%1x%2").arg(kTestImageWidth).arg(kTestImageHeight)));
+
+    sendKey(&window, Qt::Key_V);
+    REQUIRE_FALSE(status->isVisible());
+    // The title is not part of the overlay, so it stays put either way.
+    REQUIRE(window.windowTitle().contains(QStringLiteral("a.png")));
+  }
+}
+
+TEST_CASE("A small image is scaled up to fill the window", "[gui]")
+{
+  const QTemporaryDir directory;
+  REQUIRE(directory.isValid());
+  REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
+
+  imgview::ImageView view;
+  REQUIRE(view.load(directory.filePath(QStringLiteral("a.png"))));
+  // 3:2 is the image's own aspect ratio, and 240x160 is much larger than 48x32.
+  view.resize(240, 160);
+  view.show();
+
+  const QImage shown = view.grab().toImage();
+  REQUIRE_FALSE(shown.isNull());
+
+  // Every corner is image, not the black background: the picture was blown up
+  // to the window instead of sitting in the middle at its own 48x32 size.
+  const QPoint corners[] = { QPoint(2, 2),
+    QPoint(shown.width() - 3, 2),
+    QPoint(2, shown.height() - 3),
+    QPoint(shown.width() - 3, shown.height() - 3) };
+  for (const QPoint &corner : corners) {
+    REQUIRE(shown.pixelColor(corner).red() > 0x80);
+  }
+}
+
+TEST_CASE("Scaling up keeps the aspect ratio", "[gui]")
+{
+  const QTemporaryDir directory;
+  REQUIRE(directory.isValid());
+  REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
+
+  imgview::ImageView view;
+  REQUIRE(view.load(directory.filePath(QStringLiteral("a.png"))));
+  view.resize(200, 200);
+  view.show();
+
+  const QImage shown = view.grab().toImage();
+  REQUIRE_FALSE(shown.isNull());
+
+  // A 3:2 image in a square window is as wide as the window and black above and
+  // below, rather than stretched to fill it.
+  REQUIRE(shown.pixelColor(shown.width() / 2, 2).red() < 0x20);
+  REQUIRE(shown.pixelColor(shown.width() / 2, shown.height() / 2).red() > 0x80);
+  REQUIRE(shown.pixelColor(shown.width() / 2, shown.height() - 3).red() < 0x20);
 }

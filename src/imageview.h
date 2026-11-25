@@ -11,9 +11,9 @@ class QPainter;
 namespace imgview {
 
 /*!
- * Paints a single image on a black background: scaled down to fit the widget,
- * never scaled up beyond its own size, and centred. When there is no image to
- * paint it shows a text message instead.
+ * Paints a single image on a black background: scaled (up or down, always with
+ * its aspect ratio) to fill as much of the widget as it can, and centred. When
+ * there is no image to paint it shows a text message instead.
  */
 class ImageView : public QWidget
 {

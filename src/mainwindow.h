@@ -21,7 +21,8 @@ class ImageView;
  * The window has no title bar, so the window title carries the file name and the
  * position in the list for task bars and window lists. In verbose mode the same
  * text, plus the image size and the file size, is also drawn over the bottom left
- * corner of the image.
+ * corner of the image. The "v" key turns that overlay on and off while the window
+ * is open, whichever way it was started.
  */
 class MainWindow : public FramelessWindow
 {
@@ -31,7 +32,8 @@ public:
   /*!
    * \param playlist           The images to show, and in which order.
    * \param slideshowInterval  Milliseconds between automatic advances; 0 turns the slideshow off.
-   * \param verbose            Whether to draw the file name and the image details over the image.
+   * \param verbose            Whether to draw the file name and the image details over the image
+   *                           from the start; the "v" key toggles it while the window is open.
    */
   MainWindow(Playlist playlist, int slideshowInterval, bool verbose, QWidget *parent = nullptr);
 
@@ -45,16 +47,19 @@ private:
   void showPrevious();
   void showCurrent();
   void restartCycle();
+  //! Flips the overlay on or off, which is what the "v" key is for.
+  void toggleVerbose();
 
-  //! Puts \a text in the window title, and in the overlay when there is one.
-  void setStatus(const QString &text);
+  //! Puts the current file name in the window title, and the details over the image when verbose.
+  void refreshStatus();
   void placeStatus();
 
   Playlist m_playlist;
   ImageView *m_view;
-  //! The corner overlay, or nullptr unless the window was asked to be verbose.
+  //! The corner overlay; it exists either way and is only shown in verbose mode.
   QLabel *m_status;
   QTimer m_slideshow;
+  bool m_verbose;
 };
 
 }// namespace imgview
