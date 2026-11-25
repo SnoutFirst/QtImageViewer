@@ -11,13 +11,16 @@ set(QTIMAGEVIEWER_QT_VERSION
 set_property(CACHE QTIMAGEVIEWER_QT_VERSION PROPERTY STRINGS AUTO 5 6)
 
 if(QTIMAGEVIEWER_QT_VERSION STREQUAL "AUTO")
+  # Only picks the major version; the per-module files (and with them the
+  # qt_* functions used below) are loaded by the find_package() after it.
   find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 elseif(QTIMAGEVIEWER_QT_VERSION MATCHES "^[56]$")
-  find_package(Qt${QTIMAGEVIEWER_QT_VERSION} REQUIRED COMPONENTS Widgets)
   set(QT_VERSION_MAJOR ${QTIMAGEVIEWER_QT_VERSION})
 else()
   message(FATAL_ERROR "QTIMAGEVIEWER_QT_VERSION must be AUTO, 5 or 6, not \"${QTIMAGEVIEWER_QT_VERSION}\"")
 endif()
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 # NOTE: find_package(Qt...) has to run at *directory* scope, not inside a
 # function() or a macro(): it sets variables such as QT_CMAKE_EXPORT_NAMESPACE

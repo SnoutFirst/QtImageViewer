@@ -41,6 +41,7 @@ function(QtImageViewer_package_project)
 
   # Set default options
   include(GNUInstallDirs) # Define GNU standard installation directories such as CMAKE_INSTALL_DATADIR
+  include(FetchContent)   # FetchContent_Populate below, without relying on someone else having included it
 
   # set default packaged targets
   if(NOT _PackageProject_TARGETS)

@@ -47,7 +47,7 @@ jobs:
             build_type: Release
           # The other two platforms, with the official Qt build.
           - name: macos Qt 6 Release
-            os: macos-14
+            os: macos-15
             qt: 6
             qt_source: aqt
             build_type: Release
