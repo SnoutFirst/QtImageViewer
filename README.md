@@ -148,6 +148,44 @@ way at the other end of a cycle.
 - The Qt platform plugin needs a display. On a headless machine, use
   `QT_QPA_PLATFORM=offscreen` for `--help`, `--version` or the test suite.
 
+### Memory
+
+The program holds one decoded image and one scaled copy of it; stepping through
+images replaces them, so the resident size settles instead of growing. To check
+that rather than trust it, build the Debug preset, which has the sanitizers on
+(see `CMakePresets.json`), and run the tests or the program:
+
+```sh
+cmake --preset unixlike-gcc-debug
+cmake --build --preset unixlike-gcc-debug
+ctest --preset test-unixlike-gcc-debug        # every test is a leak check too
+```
+
+LeakSanitizer prints nothing for this program. It does find two allocations of
+Qt's own — the X11 platform integration builds a `QGenericUnixServices` for the
+desktop portal, opens a D-Bus connection on the way, and destroys neither — so
+the program tells ASan to ignore those four symbols itself
+(`__asan_default_suppressions()` in `src/main.cpp`): a report that survives that
+is the viewer's. `valgrind --leak-check=full` agrees: "definitely lost: 0 bytes"
+in this program's frames, and 1,376 bytes in Qt's X11/D-Bus start-up code.
+
+## Tests
+
+```sh
+cmake -S . -B build && cmake --build build -j
+cd build && QT_QPA_PLATFORM=offscreen ctest --output-on-failure
+```
+
+The tests cover the playlist rules (the "every image once" guarantee, both
+directions, across cycle boundaries), the command line expansion (recursion,
+duplicate suppression, unreadable paths), the command line interface itself,
+and the widgets: that the window really is frameless, that dragging moves it and
+that dragging near an edge resizes it, on `QT_QPA_PLATFORM=offscreen` and
+without a window manager (the tests then exercise the widget's own move and
+resize, which is also what happens on a platform without
+`startSystemMove()`). Building and testing against both Qt majors is what the
+CI matrix does.
+
 ## Static analysis
 
 `clang-tidy` and `cppcheck` are both warnings-as-errors and run in CI, one job

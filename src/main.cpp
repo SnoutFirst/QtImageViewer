@@ -15,6 +15,45 @@
 #include <cstdlib>
 #include <string_view>
 
+/*
+ * LeakSanitizer (part of AddressSanitizer) checks for leaks when the program
+ * exits, and finds Qt's: the X11 platform integration builds a
+ * QGenericUnixServices for the desktop portal, opens a D-Bus connection on the
+ * way and destroys neither. Those are Qt's to fix, so they are suppressed here:
+ * a leak report that survives this is the viewer's own. Defining this function
+ * is how LeakSanitizer is told about suppressions without ASAN_OPTIONS in the
+ * environment (leak: entries belong to LeakSanitizer, not to AddressSanitizer).
+ */
+#if defined(__SANITIZE_ADDRESS__)
+#define QTIMAGEVIEWER_SANITIZER_ADDRESS 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define QTIMAGEVIEWER_SANITIZER_ADDRESS 1
+#endif
+#endif
+
+#if defined(QTIMAGEVIEWER_SANITIZER_ADDRESS)
+// -fvisibility=hidden would keep LeakSanitizer from finding the function: it
+// looks the name up in the dynamic symbol table.
+extern "C" __attribute__((visibility("default"))) const char *
+__lsan_default_suppressions()// NOLINT(readability-identifier-naming): LeakSanitizer's own name
+{
+  return "leak:QGenericUnixServices\n"
+         "leak:libQt6DBus\n"
+         "leak:libQt5DBus\n"
+         "leak:_dbus_string_lengthen\n";
+}
+
+// LeakSanitizer prints a table of the suppressions it matched every time one
+// matches, which is noise at the end of a clean run; the leaks it reports are
+// unaffected by this.
+extern "C" __attribute__((visibility("default"))) const char *
+__asan_default_options()// NOLINT(readability-identifier-naming): AddressSanitizer's own name
+{
+  return "print_suppressions=0";
+}
+#endif
+
 namespace {
 
 constexpr int kDefaultSlideshowSeconds = 5;

@@ -115,6 +115,10 @@ jobs:
       - name: Test
         # The program is a GUI one; the tests do not need a screen, but Qt still
         # wants a platform plugin to exist.
+        #
+        # The sanitizer build checks for leaks with every test; the suppressions
+        # for Qt's own start-up allocations are compiled into the program (see
+        # main.cpp), so anything reported here is this program's.
         env:
           QT_QPA_PLATFORM: offscreen
         run: ctest --test-dir build --output-on-failure
