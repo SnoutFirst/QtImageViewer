@@ -16,6 +16,8 @@
 #include <QMouseEvent>
 #include <QTemporaryDir>
 
+#include <array>
+
 namespace {
 
 //! Size of the test images, so a test can check that the viewer reports it.
@@ -320,7 +322,7 @@ TEST_CASE("A small image is scaled up to fill the window", "[gui]")
 
   // Every corner is image, not the black background: the picture was blown up
   // to the window instead of sitting in the middle at its own 48x32 size.
-  const QPoint corners[] = { QPoint(2, 2),
+  const std::array<QPoint, 4> corners{ QPoint(2, 2),
     QPoint(shown.width() - 3, 2),
     QPoint(2, shown.height() - 3),
     QPoint(shown.width() - 3, shown.height() - 3) };
