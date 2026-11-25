@@ -21,9 +21,10 @@ QtImageViewer --random --slideshow --timeout 8 ~/Pictures/wallpapers photo.png
 - `--slideshow` advances by itself; `--timeout` says how often.
 - A window without a frame — no title bar, no borders — that is moved by
   dragging the image and resized by dragging near an edge or a corner.
-- Keyboard and mouse wheel navigation, full screen; the file name and position
-  in the list (`photo.png (3/12)`) appear in the corner for a couple of seconds
-  after each step, and in the window title for task bars and window lists.
+- Keyboard and mouse wheel navigation, full screen. The file name and position
+  in the list (`photo.png (3/12)`) go in the window title, for task bars and
+  window lists; `--verbose` also draws them — with the pixel size and the file
+  size — over the bottom left corner of the image.
 - Honours the EXIF orientation of camera images.
 - Builds against Qt 5.15 and Qt 6 from the same sources and the same
   `CMakeLists.txt`.
@@ -90,8 +91,9 @@ from. With no arguments the program explains itself and exits.
 | `-s`, `--slideshow` | Advance to the next image automatically. |
 | `-t`, `--timeout <seconds>` | Seconds each image is shown in a slideshow. Default: 5. Only used together with `--slideshow`; fractions are allowed (`-t 0.5`). |
 | `--no-recurse` | Do not look inside the subdirectories of a directory argument. |
+| `-v`, `--verbose` | Draw the file name, the position in the list, the pixel size and the file size over the bottom left corner of the image. |
 | `-h`, `--help` | Usage summary. |
-| `-v`, `--version` | Version of the program. |
+| `-V`, `--version` | Version of the program. |
 
 ### Controls
 
@@ -140,27 +142,11 @@ way at the other end of a cycle.
   (`QWindow::startSystemMove()` / `startSystemResize()`), which is what keeps
   snapping and tiling working; on a platform that cannot — and on an X server
   with no window manager at all — the widget moves and resizes itself.
-- The overlay with the file name is a label floating over the image rather than
-  part of the layout, so it does not take a strip of the window for itself.
+- The `--verbose` overlay is a label floating over the image rather than part
+  of the layout, so it does not take a strip of the window for itself. Without
+  `--verbose` nothing is drawn over the image at all.
 - The Qt platform plugin needs a display. On a headless machine, use
   `QT_QPA_PLATFORM=offscreen` for `--help`, `--version` or the test suite.
-
-## Tests
-
-```sh
-cmake -S . -B build && cmake --build build -j
-cd build && QT_QPA_PLATFORM=offscreen ctest --output-on-failure
-```
-
-The tests cover the playlist rules (the "every image once" guarantee, both
-directions, across cycle boundaries), the command line expansion (recursion,
-duplicate suppression, unreadable paths), the command line interface itself,
-and the widgets: that the window really is frameless, that dragging moves it and
-that dragging near an edge resizes it, on `QT_QPA_PLATFORM=offscreen` and
-without a window manager (the tests then exercise the widget's own move and
-resize, which is also what happens on a platform without
-`startSystemMove()`). Building and testing against both Qt majors is what the
-CI matrix does.
 
 ## License
 

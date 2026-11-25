@@ -17,9 +17,13 @@
 
 namespace {
 
+//! Size of the test images, so a test can check that the viewer reports it.
+constexpr int kTestImageWidth = 48;
+constexpr int kTestImageHeight = 32;
+
 bool writePng(const QString &path, QRgb colour)
 {
-  QImage image(48, 32, QImage::Format_RGB32);
+  QImage image(kTestImageWidth, kTestImageHeight, QImage::Format_RGB32);
   image.fill(colour);
   return image.save(path, "PNG");
 }
@@ -181,7 +185,7 @@ TEST_CASE("The viewer shows the playlist and steps through it", "[gui]")
   const imgview::ImageScan scan = imgview::collectImages({ directory.path() }, true);
   REQUIRE(scan.files.size() == 2);
 
-  imgview::MainWindow window(imgview::Playlist(scan.files, imgview::PlaylistOrder::Sequential), 0);
+  imgview::MainWindow window(imgview::Playlist(scan.files, imgview::PlaylistOrder::Sequential), 0, false);
   window.show();
 
   auto *view = window.findChild<imgview::ImageView *>();
@@ -189,11 +193,11 @@ TEST_CASE("The viewer shows the playlist and steps through it", "[gui]")
   // The window drags and resizes itself, so the view must not swallow the mouse.
   REQUIRE(view->testAttribute(Qt::WA_TransparentForMouseEvents));
 
-  auto *status = window.findChild<QLabel *>(QStringLiteral("status"));
-  REQUIRE(status != nullptr);
-  REQUIRE(status->text().contains(QStringLiteral("a.png")));
-  REQUIRE(status->text().contains(QStringLiteral("(1/2)")));
+  // The file name goes in the window title; nothing is drawn over the image
+  // unless verbose mode was asked for.
+  REQUIRE(window.findChild<QLabel *>(QStringLiteral("status")) == nullptr);
   REQUIRE(window.windowTitle().contains(QStringLiteral("a.png")));
+  REQUIRE(window.windowTitle().contains(QStringLiteral("(1/2)")));
 
   SECTION("the next image is one key (or one wheel click) away")
   {
@@ -222,7 +226,7 @@ TEST_CASE("The viewer shows the playlist and steps through it", "[gui]")
 
 TEST_CASE("A viewer without images says so instead of showing nothing", "[gui]")
 {
-  imgview::MainWindow window(imgview::Playlist({}, imgview::PlaylistOrder::Sequential), 0);
+  imgview::MainWindow window(imgview::Playlist({}, imgview::PlaylistOrder::Sequential), 0, false);
   window.show();
 
   // Nothing to step to, and nothing to crash on.
@@ -231,4 +235,34 @@ TEST_CASE("A viewer without images says so instead of showing nothing", "[gui]")
   sendKey(&window, Qt::Key_R);
 
   REQUIRE(window.windowTitle() == QStringLiteral("QtImageViewer"));
+}
+
+TEST_CASE("Verbose mode draws the file name and the image details over the image", "[gui]")
+{
+  QTemporaryDir directory;
+  REQUIRE(directory.isValid());
+  REQUIRE(writePng(directory.filePath(QStringLiteral("a.png")), Qt::red));
+  REQUIRE(writePng(directory.filePath(QStringLiteral("b.png")), Qt::green));
+
+  const imgview::ImageScan scan = imgview::collectImages({ directory.path() }, true);
+  REQUIRE(scan.files.size() == 2);
+
+  imgview::MainWindow window(imgview::Playlist(scan.files, imgview::PlaylistOrder::Sequential), 0, true);
+  window.show();
+
+  auto *status = window.findChild<QLabel *>(QStringLiteral("status"));
+  REQUIRE(status != nullptr);
+  REQUIRE(status->isVisible());
+  REQUIRE(status->text().contains(QStringLiteral("a.png")));
+  REQUIRE(status->text().contains(QStringLiteral("(1/2)")));
+  // The details the title bar cannot carry: the pixel size and the file size.
+  REQUIRE(status->text().contains(
+    QStringLiteral("%1x%2").arg(kTestImageWidth).arg(kTestImageHeight)));
+  REQUIRE(status->text().contains(QStringLiteral("bytes")));
+
+  sendKey(&window, Qt::Key_Right);
+
+  REQUIRE(status->text().contains(QStringLiteral("b.png")));
+  REQUIRE(status->text().contains(QStringLiteral("(2/2)")));
+  REQUIRE(window.windowTitle().contains(QStringLiteral("b.png")));
 }

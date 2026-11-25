@@ -69,7 +69,9 @@ int main(int argc, char *argv[])
   QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
 
-  QApplication application(argc, argv);
+  // qApp points at this object as a QApplication *, so it cannot be const even
+  // though everything this program calls on it is static.
+  QApplication application(argc, argv);// NOLINT(misc-const-correctness)
   QApplication::setApplicationName(QStringLiteral("QtImageViewer"));
   QApplication::setApplicationVersion(applicationVersion());
 
@@ -83,20 +85,32 @@ int main(int argc, char *argv[])
     QStringLiteral("Seconds each image is shown in a slideshow (default: %1).").arg(kDefaultSlideshowSeconds),
     QStringLiteral("seconds"),
     QString::number(kDefaultSlideshowSeconds));
+  const QCommandLineOption verboseOption({ QStringLiteral("v"), QStringLiteral("verbose") },
+    QStringLiteral("Draw the file name, the position in the list and the image details over the image."));
+  // -v is taken by --verbose, which is the more useful of the two; the version
+  // is on -V instead of the -v addVersionOption() would use.
+  const QCommandLineOption versionOption({ QStringLiteral("V"), QStringLiteral("version") },
+    QStringLiteral("Displays version information."));
 
   QCommandLineParser parser;
   parser.setApplicationDescription(
     QStringLiteral("Shows images, in the order given or in a shuffled order, by hand or as a slideshow."));
   parser.addHelpOption();
-  parser.addVersionOption();
+  parser.addOption(versionOption);
   parser.addOption(noRecurseOption);
   parser.addOption(randomOption);
   parser.addOption(slideshowOption);
   parser.addOption(timeoutOption);
+  parser.addOption(verboseOption);
   parser.addPositionalArgument(QStringLiteral("images"),
     QStringLiteral("Image files, and/or directories with images in them."),
     QStringLiteral("[images...]"));
   parser.process(application);
+
+  if (parser.isSet(versionOption)) {
+    QTextStream(stdout) << QApplication::applicationName() << ' ' << QApplication::applicationVersion() << '\n';
+    return EXIT_SUCCESS;
+  }
 
   const QStringList paths = parser.positionalArguments();
   if (paths.isEmpty()) {
@@ -117,7 +131,7 @@ int main(int argc, char *argv[])
   const imgview::PlaylistOrder order =
     parser.isSet(randomOption) ? imgview::PlaylistOrder::Shuffled : imgview::PlaylistOrder::Sequential;
 
-  imgview::MainWindow window(imgview::Playlist(scan.files, order), interval);
+  imgview::MainWindow window(imgview::Playlist(scan.files, order), interval, parser.isSet(verboseOption));
   window.show();
 
   return application.exec();

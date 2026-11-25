@@ -18,9 +18,10 @@ class ImageView;
 /*!
  * Shows one image of a playlist and moves through it, on request or on a timer.
  *
- * The window has no title bar, so where the file name and the position in the
- * list go is a label in the corner of the window; it fades out of the way by
- * itself. The window title carries the same text for task bars and window lists.
+ * The window has no title bar, so the window title carries the file name and the
+ * position in the list for task bars and window lists. In verbose mode the same
+ * text, plus the image size and the file size, is also drawn over the bottom left
+ * corner of the image.
  */
 class MainWindow : public FramelessWindow
 {
@@ -30,8 +31,9 @@ public:
   /*!
    * \param playlist           The images to show, and in which order.
    * \param slideshowInterval  Milliseconds between automatic advances; 0 turns the slideshow off.
+   * \param verbose            Whether to draw the file name and the image details over the image.
    */
-  MainWindow(Playlist playlist, int slideshowInterval, QWidget *parent = nullptr);
+  MainWindow(Playlist playlist, int slideshowInterval, bool verbose, QWidget *parent = nullptr);
 
 protected:
   void keyPressEvent(QKeyEvent *event) override;
@@ -44,15 +46,14 @@ private:
   void showCurrent();
   void restartCycle();
 
-  //! Puts \a text in the corner overlay and in the window title.
+  //! Puts \a text in the window title, and in the overlay when there is one.
   void setStatus(const QString &text);
   void placeStatus();
 
   Playlist m_playlist;
   ImageView *m_view;
+  //! The corner overlay, or nullptr unless the window was asked to be verbose.
   QLabel *m_status;
-  //! Hides the corner overlay again after a while.
-  QTimer m_statusTimeout;
   QTimer m_slideshow;
 };
 

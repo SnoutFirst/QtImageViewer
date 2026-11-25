@@ -28,6 +28,7 @@ bool ImageView::load(const QString &path)
   m_path = path;
 
   if (image.isNull()) {
+    m_size = {};
     m_image = QImage();
     m_scaled = QPixmap();
     m_scaledDirty = false;
@@ -37,6 +38,7 @@ bool ImageView::load(const QString &path)
   }
 
   m_image = std::move(image);
+  m_size = m_image.size();
   m_message.clear();
   m_scaledDirty = true;
   update();
@@ -48,12 +50,15 @@ void ImageView::showMessage(const QString &message)
   m_path.clear();
   m_message = message;
   m_image = QImage();
+  m_size = {};
   m_scaled = QPixmap();
   m_scaledDirty = false;
   update();
 }
 
-QString ImageView::path() const { return m_path; }
+const QString &ImageView::path() const { return m_path; }
+
+QSize ImageView::imageSize() const { return m_size; }
 
 QSize ImageView::sizeHint() const { return { 960, 640 }; }
 

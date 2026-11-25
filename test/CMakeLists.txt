@@ -144,6 +144,12 @@ if(NOT WIN32)
   set_tests_properties(cli.explains_itself PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
                                                         PASS_REGULAR_EXPRESSION "--no-recurse")
 
+  # -v is the short form of --verbose, so it must not print the version and stop:
+  # with no images on the command line it is still a usage error.
+  add_test(NAME cli.short_v_is_verbose COMMAND QtImageViewer -v)
+  set_tests_properties(cli.short_v_is_verbose PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+                                                      WILL_FAIL TRUE)
+
   # No images at all is a usage error, not a window with nothing in it.
   add_test(NAME cli.rejects_empty_command_line COMMAND QtImageViewer)
   set_tests_properties(cli.rejects_empty_command_line PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"

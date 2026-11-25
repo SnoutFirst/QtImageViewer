@@ -27,9 +27,11 @@ public:
   //! Throws the image away and shows \a message instead.
   void showMessage(const QString &message);
 
-  QString path() const;
+  [[nodiscard]] const QString &path() const;
+  //! Size of the decoded image; empty when there is nothing (decodable) loaded.
+  [[nodiscard]] QSize imageSize() const;
 
-  QSize sizeHint() const override;
+  [[nodiscard]] QSize sizeHint() const override;
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -41,6 +43,7 @@ private:
 
   QImage m_image;
   QPixmap m_scaled;
+  QSize m_size;
   QString m_path;
   QString m_message;
   bool m_scaledDirty = true;

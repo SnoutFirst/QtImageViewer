@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLocale>
 #include <QResizeEvent>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -14,16 +15,14 @@
 namespace imgview {
 namespace {
 
-//! How long the file name overlay stays on screen, in milliseconds.
-constexpr int kStatusTimeout = 2500;
 //! Distance between the overlay and the bottom left corner, in pixels.
 constexpr int kStatusMargin = 12;
 
 }// namespace
 
-MainWindow::MainWindow(Playlist playlist, int slideshowInterval, QWidget *parent)
-  : FramelessWindow(parent), m_playlist(std::move(playlist)), m_view(new ImageView(this)), m_status(new QLabel(this)),
-    m_slideshow(this)
+MainWindow::MainWindow(Playlist playlist, int slideshowInterval, bool verbose, QWidget *parent)
+  : FramelessWindow(parent), m_playlist(std::move(playlist)), m_view(new ImageView(this)),
+    m_status(verbose ? new QLabel(this) : nullptr), m_slideshow(this)
 {
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
@@ -37,16 +36,14 @@ MainWindow::MainWindow(Playlist playlist, int slideshowInterval, QWidget *parent
   setFocusPolicy(Qt::StrongFocus);
   setMinimumSize(200, 150);
 
-  // The overlay is a child of the window rather than part of the layout: it
-  // floats over the image instead of taking a strip of the window for itself.
-  m_status->setObjectName(QStringLiteral("status"));
-  m_status->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-  m_status->setStyleSheet(
-    QStringLiteral("QLabel { color: white; background: rgba(0, 0, 0, 170); padding: 4px 8px; border-radius: 4px; }"));
-  m_status->hide();
-  m_statusTimeout.setSingleShot(true);
-  m_statusTimeout.setInterval(kStatusTimeout);
-  connect(&m_statusTimeout, &QTimer::timeout, m_status, &QWidget::hide);
+  if (m_status != nullptr) {
+    // The overlay is a child of the window rather than part of the layout: it
+    // floats over the image instead of taking a strip of the window for itself.
+    m_status->setObjectName(QStringLiteral("status"));
+    m_status->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_status->setStyleSheet(
+      QStringLiteral("QLabel { color: white; background: rgba(0, 0, 0, 170); padding: 4px 8px; border-radius: 4px; }"));
+  }
 
   resize(m_view->sizeHint());
 
@@ -165,33 +162,41 @@ void MainWindow::showCurrent()
   }
 
   const QString path = m_playlist.current();
+  const QFileInfo file(path);
 
   // A file that cannot be read is reported by the view itself; the slideshow
   // keeps going rather than stalling on it.
   m_view->load(path);
 
-  setStatus(QStringLiteral("%1 (%2/%3)")
-              .arg(QFileInfo(path).fileName())
-              .arg(m_playlist.position())
-              .arg(m_playlist.size()));
+  QString text =
+    QStringLiteral("%1 (%2/%3)").arg(file.fileName()).arg(m_playlist.position()).arg(m_playlist.size());
+
+  if (m_status != nullptr) {
+    // Verbose mode is the place for the details that would be in the way of the
+    // picture: how big it is, and how big the file is.
+    const QSize imageSize = m_view->imageSize();
+    if (imageSize.isValid()) {
+      text += QStringLiteral("  %1x%2").arg(imageSize.width()).arg(imageSize.height());
+    }
+    if (file.size() > 0) {
+      text += QStringLiteral("  %1").arg(QLocale().formattedDataSize(file.size(), 1));
+    }
+  }
+
+  setStatus(text);
 }
 
 void MainWindow::setStatus(const QString &text)
 {
-  if (text.isEmpty()) {
-    m_statusTimeout.stop();
-    m_status->hide();
-    setWindowTitle(QStringLiteral("QtImageViewer"));
-    return;
-  }
+  setWindowTitle(text.isEmpty() ? QStringLiteral("QtImageViewer") : text);
 
-  setWindowTitle(text);
+  if (m_status == nullptr) { return; }
+
   m_status->setText(text);
   m_status->adjustSize();
   placeStatus();
   m_status->raise();
-  m_status->show();
-  m_statusTimeout.start();
+  m_status->setVisible(!text.isEmpty());
 }
 
 void MainWindow::placeStatus()
